@@ -15,3 +15,33 @@
 .session-chip{border:1px solid #d9e3e7;background:#fff;border-radius:20px;padding:5px 11px;font-size:12px;font-weight:600;color:#4b6374;cursor:pointer}
 .session-chip.on{border-color:#26a56b;background:#edf9f2;color:#126b52}
 .session-chip.live{color:#126b52}
+/* Thiết lập lớp */
+.setup{max-width:860px;margin:0 auto}
+.setup .panel{position:relative;margin-bottom:14px}
+.setup-step{position:absolute;top:-10px;left:-10px;width:28px;height:28px;border-radius:99px;background:#26a56b;color:#fff;font-weight:800;display:flex;align-items:center;justify-content:center;font-size:14px}
+.preset-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.preset-card,.feat-card{text-align:left;border:1.5px solid #d9e3e7;background:#fff;border-radius:12px;padding:12px;cursor:pointer;display:flex;gap:10px;align-items:flex-start;font:inherit;color:inherit}
+.preset-card{flex-direction:column;gap:3px}
+.preset-card small,.feat-card small{display:block;color:#5f7380;font-size:12px;line-height:1.4;margin-top:2px}
+.preset-card.on,.feat-card.on{border-color:#26a56b;background:#f2fbf6}
+.preset-icon,.feat-icon{font-size:20px;line-height:1.2}
+.feat-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
+.feat-check{flex:0 0 20px;height:20px;border-radius:6px;border:1.5px solid #b9c8cf;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;color:#fff;margin-top:2px}
+.feat-card.on .feat-check{background:#26a56b;border-color:#26a56b}
+.feat-sub{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:6px;align-items:center;padding:2px 4px 6px}
+.setup-summary{background:#f7fbf9}
+@media(max-width:640px){.preset-grid,.feat-grid{grid-template-columns:1fr}}
+/* Bộ câu hỏi */
+.bank-topic{font-weight:700;font-size:13px;color:#33505f;margin:10px 0 4px}
+.bank-row{display:flex;gap:10px;justify-content:space-between;align-items:flex-start;border:1px solid #e3eaee;border-radius:10px;padding:9px 10px;margin-bottom:6px}
+.bank-main{min-width:0;flex:1}
+.bank-text{margin:5px 0 3px;overflow-wrap:anywhere}
+.bank-row .actions{flex-wrap:wrap;justify-content:flex-end}
+.bank-editor{border:1.5px dashed #9fd3b8;border-radius:12px;padding:12px;background:#fbfefc}
+.bank-editor .pair-row{gap:8px}
+.bank-editor .pair-row .input{flex:1}
+.q-text{font-size:17px;font-weight:600;margin:8px 0 4px;line-height:1.5;overflow-wrap:anywhere}
+.q-list{display:flex;flex-direction:column;gap:4px;margin:4px 0}
+.choice-btn{text-align:left;min-height:46px;white-space:normal;line-height:1.45}
+.roster-name{background:#eef5f2!important;color:#234!important}
+.rich .katex{font-size:1.05em}
