@@ -11,3 +11,7 @@
 .my-rooms{display:flex;flex-direction:column;gap:8px}
 .my-rooms .name-row{align-items:center}
 .delivery{font-size:11px;font-weight:700;color:#126b52}
+.session-bar{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:0 0 14px}
+.session-chip{border:1px solid #d9e3e7;background:#fff;border-radius:20px;padding:5px 11px;font-size:12px;font-weight:600;color:#4b6374;cursor:pointer}
+.session-chip.on{border-color:#26a56b;background:#edf9f2;color:#126b52}
+.session-chip.live{color:#126b52}
