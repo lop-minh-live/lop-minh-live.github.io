@@ -21,10 +21,11 @@ const FIREBASE_CONFIG = IS_LOCAL ? {
   projectId: 'demo-lopminh',
   databaseURL: 'https://demo-lopminh-default-rtdb.firebaseio.com',
 } : {
-  apiKey: 'AIzaSyBlRUqbjEKzP6Q1uDqNDNfLpP50Nt8NE04',
-  authDomain: 'altp-toanhoc.firebaseapp.com',
-  projectId: 'altp-toanhoc',
-  databaseURL: 'https://altp-toanhoc-default-rtdb.asia-southeast1.firebasedatabase.app',
+  apiKey: "AIzaSyBSFmOf72l8-SnxXAqI6iIhUKw35j-1fOE",
+  authDomain: "lop-minh-live.firebaseapp.com",
+  databaseURL: "https://lop-minh-live-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "lop-minh-live",
+  appId: "1:185046600430:web:4c7960a7da6c2b65fec1ff",
 };
 const ROOT = 'lopminh/classes';
 const P = (code, sub) => ROOT + '/' + code + (sub ? '/' + sub : '');
