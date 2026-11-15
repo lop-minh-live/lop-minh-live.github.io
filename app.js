@@ -66,22 +66,23 @@ function conn(kind) {
 
 // ---------- Tính năng cô chọn cho từng lớp ----------
 const FEATURES = [
-  { id: 'quick', group: 'Tương tác trong giờ', icon: '⚡', label: 'Câu hỏi nhanh', desc: 'Cô chiếu đề trên Zoom/Meet, học sinh chỉ bấm đáp án. Không cần soạn trước.' },
-  { id: 'bank', group: 'Tương tác trong giờ', icon: '📚', label: 'Bộ câu hỏi soạn sẵn', desc: 'Cô soạn đề, lựa chọn và đáp án trước giờ học (gõ được công thức toán). Học sinh thấy đề trên máy mình; cô bấm chốt là chấm ngay.' },
-  { id: 'checkin', group: 'Tương tác trong giờ', icon: '🌤️', label: 'Check-in cảm xúc', desc: 'Hỏi nhanh đầu, giữa, cuối giờ: con sẵn sàng chưa, có theo kịp không. Không chấm điểm.' },
-  { id: 'attendance', group: 'Theo dõi lớp', icon: '✅', label: 'Điểm danh', desc: 'Có mặt, muộn, vắng, có phép cho từng em.' },
-  { id: 'camera', group: 'Theo dõi lớp', icon: '📷', label: 'Ghi nhận bật camera', desc: 'Cô tick em nào bật/tắt camera; có số đếm “x em bật cam”.' },
-  { id: 'called', group: 'Theo dõi lớp', icon: '🙋', label: 'Ghi nhận khi cô gọi', desc: 'Em có trả lời khi được cô gọi tên không.' },
-  { id: 'note', group: 'Theo dõi lớp', icon: '📝', label: 'Nhận xét từng em', desc: 'Ghi chú ngắn cho mỗi em trong từng buổi.' },
-  { id: 'parent', group: 'Báo cáo', icon: '👪', label: 'Báo cáo phụ huynh', desc: 'Báo cáo riêng từng em mỗi buổi: in PDF, sao chép tin Zalo, soạn email. Nhớ tên/email phụ huynh.' },
-  { id: 'selfReport', group: 'Báo cáo', icon: '📊', label: 'Học sinh xem kết quả của mình', desc: 'Học sinh thấy tỷ lệ tham gia, tỷ lệ đúng và các buổi đã học.' },
+  { id: 'quick', group: 'ask', icon: '⚡', label: 'Hỏi nhanh', desc: 'Cô chiếu đề trên Zoom/Meet, các con chỉ bấm đáp án. Không cần soạn trước.' },
+  { id: 'bank', group: 'ask', icon: '📚', label: 'Câu hỏi cô soạn sẵn', desc: 'Các con thấy đề ngay trên máy mình (gõ được công thức toán). Cô chốt là chấm luôn.' },
+  { id: 'checkin', group: 'ask', icon: '🌤️', label: 'Hỏi thăm cảm xúc', desc: 'Đầu, giữa, cuối giờ: con sẵn sàng chưa, có theo kịp không. Không chấm điểm.' },
+  { id: 'attendance', group: 'track', icon: '✅', label: 'Điểm danh', desc: 'Em nào vào lớp tự được tính có mặt; cô chỉ chạm vào em vắng, đến muộn.' },
+  { id: 'camera', group: 'track', icon: '📷', label: 'Bật camera', desc: 'Cô chạm vào tên để đánh dấu em bật/tắt camera.' },
+  { id: 'called', group: 'track', icon: '🙋', label: 'Khi cô gọi tên', desc: 'Em có trả lời khi được gọi không.' },
+  { id: 'note', group: 'track', icon: '📝', label: 'Nhận xét từng em', desc: 'Vài dòng ghi chú cho mỗi em sau từng buổi.' },
+  { id: 'parent', group: 'after', icon: '👪', label: 'Gửi báo cáo cho phụ huynh', desc: 'Cuối buổi, mỗi em một tin nhắn soạn sẵn để cô gửi Zalo/email.' },
+  { id: 'selfReport', group: 'after', icon: '🌟', label: 'Các con xem kết quả của mình', desc: 'Sau mỗi câu các con biết mình đúng hay chưa; cuối buổi thấy mình làm được bao nhiêu câu.' },
 ];
 const ALL_FEATURES = FEATURES.map((f) => f.id);
-const PRESETS = [
-  { id: 'full', icon: '🌟', label: 'Đầy đủ', desc: 'Tương tác, theo dõi lớp và báo cáo phụ huynh', on: ALL_FEATURES },
-  { id: 'quiz', icon: '🎯', label: 'Chỉ tương tác', desc: 'Câu hỏi và check-in; không điểm danh, không báo cáo PH', on: ['quick', 'bank', 'checkin', 'selfReport'] },
-  { id: 'track', icon: '📋', label: 'Theo dõi lớp', desc: 'Điểm danh, camera, nhận xét, báo cáo PH; câu hỏi nhanh', on: ['quick', 'attendance', 'camera', 'called', 'note', 'parent'] },
+const SETUP_QUESTIONS = [
+  ['ask', 'Trong giờ học, cô muốn các con tương tác thế nào?'],
+  ['track', 'Cô muốn ghi lại gì về từng em?'],
+  ['after', 'Sau buổi học thì sao?'],
 ];
+const DEFAULT_ON = ['quick', 'checkin', 'attendance', 'camera', 'note', 'parent', 'selfReport'];
 const KINDS = [['abcd', 'ABCD'], ['tf', 'Đúng / Sai'], ['tf4', 'Đ/S bốn ý'], ['num', 'Điền số']];
 // Lớp tạo trước khi có phần tùy chỉnh: coi như bật hết.
 function featuresOf(meta) {
@@ -92,12 +93,15 @@ function featuresOf(meta) {
 }
 function feat(id) { return (state.view?.features || featuresOf(null))[id]; }
 const anyTracking = () => ['attendance', 'camera', 'called', 'note'].some(feat);
+// Điểm danh: em đã vào web mà cô chưa đánh dấu thì tính là có mặt.
+function attendanceOf(m) { const a = observation(m).attendance; return a !== 'unmarked' ? a : m.joinedAt != null ? 'present' : 'unmarked'; }
 
 // ---------- Trạng thái trên trang ----------
 const state = {
   role: 'home', code: '', conn: null, view: null, viewSid: null, joinCode: '', joinName: '',
   claimCode: '', claimKey: '', keys: {}, studentDrafts: {}, parentPreviewId: null,
   rosterDraft: '', rosterOpen: false, search: '', busy: false, setup: null, bankEdit: null,
+  tab: 'class', tapMode: 'attendance', pick: null, dismissed: {}, justEnded: null, joinClassName: '', showCodeInput: false,
   myClasses: loadJSON(localStorage, 'lopminh:myClasses', []),
 };
 let unsubs = [];
@@ -218,7 +222,8 @@ function buildTeacherView() {
   syncRoster(d);
   const sessions = sessionList(d);
   const liveSid = d.state?.sessionId || null;
-  if (!state.viewSid || !d.sessions?.[state.viewSid]) state.viewSid = liveSid || sessions[sessions.length - 1]?.id || null;
+  // Tab Giờ học luôn là buổi đang diễn ra.
+  if (!state.viewSid || !d.sessions?.[state.viewSid] || (state.tab === 'class' && liveSid)) state.viewSid = liveSid || sessions[sessions.length - 1]?.id || null;
   const room = state.viewSid ? buildSessionRoom(d, state.viewSid) : null;
   const allRooms = sessions.map((s) => buildSessionRoom(d, s.id)).filter(Boolean);
   // Lớp chưa có buổi nào: vẫn hiện danh sách lớp để cô chuẩn bị.
@@ -300,14 +305,14 @@ function goHome() {
   }
   stopListening();
   state.role = 'home'; state.code = ''; state.parentPreviewId = null; state.viewSid = null; state.keys = {}; state.studentDrafts = {};
-  state.setup = null; state.bankEdit = null;
+  state.setup = null; state.bankEdit = null; state.tab = 'class'; state.pick = null;
   if (MODE === 'teacher') saveJSON(sessionStorage, 'lopminh:teacherClass', null);
   render();
 }
 
 // ---------- Thiết lập lớp (tạo mới / tùy chỉnh) ----------
 function openSetup(editing) {
-  const f = editing ? state.view.features : featuresOf({ features: { ...Object.fromEntries(PRESETS[0].on.map((id) => [id, true])), kinds: { abcd: true, tf: true, tf4: true, num: true } } });
+  const f = editing ? state.view.features : featuresOf({ features: { ...Object.fromEntries(DEFAULT_ON.map((id) => [id, true])), kinds: { abcd: true, tf: true, tf4: true, num: true } } });
   state.setup = { editing: !!editing, name: editing ? state.view.name : '', features: { ...f, kinds: { ...f.kinds } }, roster: '' };
   if (!editing) state.role = 'setup';
   render(); window.scrollTo(0, 0);
@@ -383,15 +388,15 @@ function startSession() {
   const n = v.sessions.reduce((m, s) => Math.max(m, s.n || 0), 0) + 1;
   const sid = 's' + String(n).padStart(3, '0');
   write({ ['sessions/' + sid]: { n, startedAt: serverTimestamp(), status: 'live' }, state: { sessionId: sid } }).then((ok) => {
-    if (ok) { state.viewSid = sid; toast('Đã bắt đầu buổi ' + n + '. Học sinh mở link cũ là vào được.'); }
+    if (ok) { state.viewSid = sid; state.tab = 'class'; state.justEnded = null; toast('Đã bắt đầu buổi ' + n + '. Học sinh mở link cũ là vào được.'); }
   });
 }
 function endClass() {
   const room = getRoom(); if (!room || room.status !== 'live') return;
   if (active(room)) { toast('Hãy chốt hoặc bỏ hoạt động đang mở trước'); return; }
-  if (!confirm('Kết thúc buổi ' + room.n + '? Báo cáo buổi này sẽ được tổng hợp. Lớp và link vẫn giữ nguyên cho buổi sau.')) return;
+  if (!confirm('Kết thúc buổi ' + room.n + '? Lớp và link vẫn giữ nguyên cho buổi sau.')) return;
   write({ ['sessions/' + room.sid + '/status']: 'ended', ['sessions/' + room.sid + '/endedAt']: serverTimestamp(), state: null })
-    .then((ok) => ok && toast('Đã kết thúc buổi ' + room.n));
+    .then((ok) => { if (ok) { state.justEnded = room.sid; state.tab = 'report'; toast('Đã kết thúc buổi ' + room.n); render(); window.scrollTo(0, 0); } });
 }
 function deleteClass() {
   const v = state.view; if (!v) return;
@@ -466,6 +471,13 @@ function setObservation(id, field, value) {
   if (!valid[field] || !valid[field].includes(value)) return;
   const o = observation(room.members[id]);
   write({ ['obs/' + room.sid + '/' + id + '/' + field]: o[field] === value ? DEFAULT_OBS[field] : value });
+}
+const CYCLE = { attendance: ['present', 'late', 'absent', 'excused'], camera: ['unknown', 'on', 'off'], called: ['not_called', 'answered', 'no_answer'] };
+function tapStudent(id) {
+  const room = getRoom(), mode = state.tapMode; if (!room?.sid || !room.members[id] || !CYCLE[mode]) return;
+  const m = room.members[id], cur = mode === 'attendance' ? attendanceOf(m) : observation(m)[mode];
+  const list = CYCLE[mode], next = list[(list.indexOf(cur) + 1) % list.length];
+  write({ ['obs/' + room.sid + '/' + id + '/' + mode]: next });
 }
 // Ô nhập của cô: giữ bản nháp trên trang, lưu sau 0,7 giây ngừng gõ (và khi rời ô).
 // Nhận xét thuộc từng buổi; tên/email phụ huynh thuộc học sinh nên giữ cho mọi buổi sau.
@@ -579,7 +591,7 @@ function studentStats(room, member) {
   const cis = ci.filter((a) => a.responses[member.id]);
   return { eligible: qs.length, answered: answered.length, correct: correct.length, checked: cis.length, checkins: ci.length, participation: qs.length ? Math.round(answered.length / qs.length * 100) : null, accuracy: answered.length ? Math.round(correct.length / answered.length * 100) : null };
 }
-const attendedSession = (m) => ['present', 'late'].includes(observation(m).attendance) || m.joinedAt != null;
+const attendedSession = (m) => ['present', 'late'].includes(attendanceOf(m));
 // Cộng dồn cả khoá cho một học sinh (theo mã danh sách lớp).
 function courseStats(rooms, rid) {
   let sessions = 0, attended = 0, eligible = 0, answered = 0, correct = 0;
@@ -608,7 +620,7 @@ function downloadCsv(rows, filename) {
 // Cột của báo cáo buổi: chỉ những cột thuộc tính năng cô đã bật.
 function sessionColumns() {
   return [
-    ['Điểm danh', (m, s, o) => attendanceLabels[o.attendance], 'attendance'],
+    ['Điểm danh', (m) => attendanceLabels[attendanceOf(m)], 'attendance'],
     ['Camera (quan sát)', (m, s, o) => cameraLabels[o.camera], 'camera'],
     ['Khi cô gọi', (m, s, o) => calledLabels[o.called], 'called'],
     ['Câu có cơ hội tham gia', (m, s) => s.eligible, 'q'],
@@ -640,7 +652,7 @@ function exportCourseCsv() {
       ...rooms.map((r) => {
         const x = r.members[m.id]; if (!x) return '';
         const o = observation(x), s = studentStats(r, x), bits = [];
-        if (feat('attendance')) bits.push(attendanceLabels[o.attendance]);
+        if (feat('attendance')) bits.push(attendanceLabels[attendanceOf(x)]);
         if (feat('camera')) bits.push('cam ' + cameraLabels[o.camera].toLowerCase());
         if (q) bits.push(s.answered + '/' + s.eligible + ' câu, đúng ' + s.correct);
         if (!bits.length) bits.push(x.joinedAt ? 'Có vào web' : 'Không vào web');
@@ -650,249 +662,344 @@ function exportCourseCsv() {
 }
 
 // ---------- Giao diện ----------
+// Nguyên tắc: mỗi màn hình chỉ một việc chính; chữ ngắn, kiểu nói chuyện; nút to cho việc cần làm ngay.
 function isPreview() { return state.role === 'student' && MODE === 'teacher'; }
-function headline(v, teacher) {
-  const room = v.room;
-  const sub = room?.sid ? ` · Buổi ${room.n} · ${formatDate(room.createdAt)}` : '';
-  return `<div class="row wrap mb"><div><div class="title-eyebrow">${teacher ? 'Bảng điều khiển giáo viên' : 'Màn hình học sinh'}</div><h1 style="font-size:25px;margin:5px 0">${esc(v.name)}</h1><div class="muted">Mã lớp <span class="code" style="font-size:15px;letter-spacing:1px">${esc(v.code)}</span>${esc(sub)}</div></div><div class="actions">${teacher ? `${v.liveSid ? `<button class="btn sm" data-action="preview">👀 Xem thử như học sinh</button>` : ''}<button class="btn sm" data-action="customize">⚙ Tùy chỉnh lớp</button><button class="btn sm" data-action="home">← Các lớp của cô</button>` : isPreview() ? `<button class="btn sm" data-action="teacher">← Về màn hình cô</button>` : `<button class="btn sm" data-action="home">Đổi lớp / đổi tên</button>`}</div></div>`;
+const pct = (a, b) => (b ? Math.round(100 * a / b) : null);
+function classAccuracy(room) {
+  let right = 0, total = 0;
+  for (const a of room.activities) {
+    if (a.status !== 'graded') continue;
+    for (const r of Object.values(a.responses)) { total++; if (graded(a, r)) right++; }
+  }
+  return { right, total, pct: pct(right, total) };
 }
+function lastClosed(room) {
+  return [...room.activities].reverse().find((a) => a.status !== 'open') || null;
+}
+let qrFor = '', qrUrl = '';
+function qrImage() {
+  const link = linkStudent();
+  if (qrFor !== link) {
+    qrFor = link; qrUrl = '';
+    QRCode.toDataURL(link, { margin: 1, width: 300 }).then((u) => { if (qrFor === link) { qrUrl = u; render(); } }).catch(() => {});
+  }
+  return qrUrl ? `<img class="qr" src="${qrUrl}" alt="Mã QR vào lớp">` : '';
+}
+
+// ===== Trang chủ giáo viên =====
 function teacherHome() {
-  const mine = state.myClasses.length ? `<section class="panel stack"><div><div class="title-eyebrow">Lớp của cô trên máy này</div><p class="muted tight">Mỗi lớp dùng cả khoá. Vào lớp rồi bấm "Bắt đầu buổi học" mỗi tuần.</p></div><div class="my-rooms">${state.myClasses.map((r) => `<div class="name-row"><span><b>${esc(r.name)}</b> <span class="muted">· mã ${esc(r.code)}</span></span><button class="btn sm primary" data-action="resume" data-code="${esc(r.code)}">Vào lớp</button></div>`).join('')}</div></section>` : '';
-  return `<div class="hero"><div class="herohead"><div class="pill"><span class="dot"></span> Trang dành cho giáo viên</div><h1>Lớp của cô, theo cách của cô.<br><span style="color:var(--brand)">Chọn tính năng lớp cần, dùng cả khoá.</span></h1><p class="muted" style="font-size:15px">Tạo mỗi lớp một lần, chọn những gì lớp cần (câu hỏi, điểm danh, báo cáo phụ huynh…), gửi học sinh một link duy nhất.</p></div>${mine}<div class="two"><section class="panel stack"><div><div class="title-eyebrow">Lớp mới</div><h2 style="margin:7px 0">Tạo và thiết lập lớp</h2><p class="muted tight">Đặt tên lớp, chọn các tính năng cô muốn dùng, dán danh sách học sinh. Sửa lại được bất cứ lúc nào.</p></div><button class="btn primary block" data-action="newClass">+ Tạo lớp mới</button></section><section class="panel stack"><div><div class="title-eyebrow">Mở lớp trên máy khác</div><h2 style="margin:7px 0">Đã có lớp</h2><p class="muted tight">Đổi máy hoặc trình duyệt: nhập mã lớp và mã quản lý (xem trong trang lớp ở máy cũ).</p></div><div><label class="label" for="claimCode">Mã lớp</label><input id="claimCode" data-field="claimCode" class="input" value="${esc(state.claimCode)}" inputmode="numeric" maxlength="6" placeholder="6 chữ số"></div><div><label class="label" for="claimKey">Mã quản lý</label><input id="claimKey" data-field="claimKey" class="input" value="${esc(state.claimKey)}" maxlength="20" placeholder="10 ký tự" autocomplete="off"></div><button class="btn block" data-action="claim">Mở lớp</button></section></div><div class="notice">🔒 Dữ liệu lưu trên máy chủ Firebase. Học sinh chỉ thấy kết quả của chính mình; điểm danh, nhận xét, đáp án soạn sẵn và thông tin phụ huynh chỉ máy của cô xem được.</div></div>`;
+  const cards = state.myClasses.map((r) => `<button class="class-card" data-action="resume" data-code="${esc(r.code)}"><span class="class-icon">📘</span><span><b>${esc(r.name)}</b><small>Mã lớp ${esc(r.code)}</small></span><span class="go">Vào lớp ›</span></button>`).join('');
+  return `<div class="home">
+<h1 class="home-title">Chào cô 👋</h1>
+<p class="lead">${state.myClasses.length ? 'Hôm nay cô dạy lớp nào?' : 'Tạo lớp đầu tiên của cô nhé. Mỗi lớp dùng cả khoá, gửi các con một link duy nhất.'}</p>
+<div class="class-list">${cards}<button class="class-card new" data-action="newClass"><span class="class-icon">＋</span><span><b>Tạo lớp mới</b><small>Chọn những gì lớp cần, mất khoảng 1 phút</small></span></button></div>
+<details class="soft-details"><summary>Dùng lớp đã tạo trên máy khác?</summary><p class="hint">Nhập mã lớp và mã quản lý (xem ở mục <b>Cài đặt</b> của lớp trên máy cũ).</p><div class="two"><input id="claimCode" data-field="claimCode" class="input" value="${esc(state.claimCode)}" inputmode="numeric" maxlength="6" placeholder="Mã lớp (6 số)"><input id="claimKey" data-field="claimKey" class="input" value="${esc(state.claimKey)}" maxlength="20" placeholder="Mã quản lý" autocomplete="off"></div><button class="btn mt" data-action="claim">Mở lớp trên máy này</button></details>
+</div>`;
 }
+
+// ===== Tạo lớp / tùy chỉnh: hỏi như người với người =====
 function setupView() {
   const s = state.setup, f = s.features;
-  const groups = [...new Set(FEATURES.map((x) => x.group))];
-  const matches = (p) => ALL_FEATURES.every((id) => !!f[id] === p.on.includes(id));
-  const chosen = FEATURES.filter((x) => f[x.id]);
-  return `<div class="setup">${s.editing ? '' : `<button class="btn sm" data-action="cancelSetup">← Quay lại</button>`}
-<div class="row wrap" style="margin:12px 0 4px"><div><div class="title-eyebrow">${s.editing ? 'Tùy chỉnh lớp' : 'Tạo lớp mới'}</div><h1 style="font-size:26px;margin:5px 0">${s.editing ? esc(s.name || 'Lớp của cô') : 'Thiết lập lớp học của cô'}</h1></div>${s.editing ? `<button class="btn sm" data-action="cancelSetup">Đóng</button>` : ''}</div>
-<section class="panel stack"><div class="setup-step">1</div><h2 style="margin:0">Tên lớp</h2><input id="setupName" data-field="setupName" class="input" value="${esc(s.name)}" maxlength="70" placeholder="Ví dụ: Toán 10A1 tối thứ Hai"></section>
-<section class="panel stack"><div class="setup-step">2</div><div><h2 style="margin:0">Lớp của cô cần những gì?</h2><p class="muted tight">Chọn nhanh một mẫu, rồi bật/tắt từng tính năng. Phần nào tắt sẽ không hiện trong lớp.</p></div>
-<div class="preset-grid">${PRESETS.map((p) => `<button class="preset-card ${matches(p) ? 'on' : ''}" data-action="preset" data-id="${p.id}"><span class="preset-icon">${p.icon}</span><b>${p.label}</b><small>${p.desc}</small></button>`).join('')}</div>
-${groups.map((g) => `<div class="feat-group"><div class="section-title" style="margin:6px 0">${g}</div><div class="feat-grid">${FEATURES.filter((x) => x.group === g).map((x) => `<button class="feat-card ${f[x.id] ? 'on' : ''}" data-action="toggleFeat" data-id="${x.id}" aria-pressed="${f[x.id] ? 'true' : 'false'}"><span class="feat-check">${f[x.id] ? '✓' : ''}</span><span class="feat-icon">${x.icon}</span><span><b>${x.label}</b><small>${x.desc}</small></span></button>${x.id === 'quick' && f.quick ? `<div class="feat-sub"><span class="muted tiny">Dạng câu dùng trong lớp:</span>${KINDS.map(([k, l]) => `<button class="mini-choice ${f.kinds[k] ? 'chosen' : ''}" data-action="toggleKind" data-id="${k}">${l}</button>`).join('')}</div>` : ''}`).join('')}</div></div>`).join('')}</section>
-${s.editing ? '' : `<section class="panel stack"><div class="setup-step">3</div><div><h2 style="margin:0">Danh sách học sinh <span class="muted" style="font-size:14px;font-weight:500">(không bắt buộc)</span></h2><p class="muted tight">Mỗi dòng một họ tên, có thể dán cả cột từ Excel. Để trống cũng được: học sinh vào bằng link sẽ được tự thêm.</p></div><textarea class="input" rows="5" id="setupRoster" data-field="setupRoster" placeholder="Nguyễn Minh Anh&#10;Trần Đức Minh&#10;Lê Phương An">${esc(s.roster)}</textarea></section>`}
-<section class="panel stack setup-summary"><div><b>Lớp gồm:</b> ${chosen.length ? chosen.map((x) => x.icon + ' ' + x.label).join(' · ') : '<span class="muted">chưa chọn tính năng nào</span>'}</div><button class="btn primary block" data-action="saveSetup">${s.editing ? '✓ Lưu thay đổi' : '✓ Tạo lớp'}</button>${s.editing ? '<div class="hint">Dữ liệu cũ không bị xoá khi tắt tính năng; bật lại là thấy lại.</div>' : ''}</section></div>`;
+  const card = (x) => `<button class="feat-card ${f[x.id] ? 'on' : ''}" data-action="toggleFeat" data-id="${x.id}" aria-pressed="${f[x.id] ? 'true' : 'false'}"><span class="feat-check">${f[x.id] ? '✓' : ''}</span><span class="feat-icon">${x.icon}</span><span><b>${x.label}</b><small>${x.desc}</small></span></button>`;
+  let n = 1;
+  return `<div class="setup">
+<div class="row"><button class="btn sm ghost" data-action="cancelSetup">← ${s.editing ? 'Quay lại lớp' : 'Quay lại'}</button></div>
+<h1 class="home-title">${s.editing ? 'Tùy chỉnh lớp' : 'Tạo lớp mới'}</h1>
+<p class="lead">${s.editing ? 'Bật/tắt những gì lớp cần. Dữ liệu cũ vẫn giữ nguyên.' : 'Trả lời vài câu, lớp sẽ chỉ hiện đúng những gì cô cần.'}</p>
+<section class="q-block"><div class="q-num">${n++}</div><h2>Lớp tên gì?</h2><input id="setupName" data-field="setupName" class="input big" value="${esc(s.name)}" maxlength="70" placeholder="Ví dụ: Toán 10A1 tối thứ Hai"></section>
+${SETUP_QUESTIONS.map(([g, q]) => `<section class="q-block"><div class="q-num">${n++}</div><h2>${q}</h2><p class="hint">Chọn bao nhiêu cũng được, bỏ trống cũng được.</p><div class="feat-grid">${FEATURES.filter((x) => x.group === g).map(card).join('')}</div>${g === 'ask' && f.quick ? `<div class="feat-sub"><span class="hint">Hỏi nhanh dùng dạng câu:</span>${KINDS.map(([k, l]) => `<button class="mini-choice ${f.kinds[k] ? 'chosen' : ''}" data-action="toggleKind" data-id="${k}">${l}</button>`).join('')}</div>` : ''}</section>`).join('')}
+${s.editing ? '' : `<section class="q-block"><div class="q-num">${n++}</div><h2>Danh sách lớp <span class="muted" style="font-size:15px;font-weight:500">(có thể để sau)</span></h2><p class="hint">Mỗi dòng một họ tên, dán cả cột từ Excel được. Để trống thì em nào vào lớp sẽ tự có tên.</p><textarea class="input" rows="5" id="setupRoster" data-field="setupRoster" placeholder="Nguyễn Minh Anh&#10;Trần Đức Minh&#10;Lê Phương An">${esc(s.roster)}</textarea></section>`}
+<div class="setup-bar"><button class="btn primary big-btn" data-action="saveSetup">${s.editing ? 'Lưu thay đổi' : 'Tạo lớp'}</button></div>
+</div>`;
 }
-function studentHome() {
-  return `<div class="student-shell"><div class="hero"><div class="herohead"><div class="pill"><span class="dot"></span> Lớp Mình Live</div><h1 style="font-size:28px">Vào lớp học online</h1><p class="muted">Nhập mã lớp cô gửi (link của cô đã điền sẵn) và họ tên của con. Lần sau mở lại link là vào thẳng.</p></div><section class="panel stack"><div><label class="label" for="joinCode">Mã lớp</label><input id="joinCode" data-field="joinCode" class="input" value="${esc(state.joinCode)}" inputmode="numeric" maxlength="6" placeholder="6 chữ số"></div><div><label class="label" for="joinName">Họ và tên</label><input id="joinName" data-field="joinName" class="input" value="${esc(state.joinName)}" maxlength="60" placeholder="Ví dụ: Nguyễn Minh Anh"><div class="hint mt">Ghi đúng họ tên đầy đủ, giống nhau ở mọi buổi.</div></div><button class="btn primary block" data-action="join">Vào lớp</button></section></div></div>`;
+
+// ===== Màn giáo viên trong một lớp =====
+function teacher(v) {
+  if (state.setup?.editing) return setupView();
+  const room = v.room;
+  const selected = state.parentPreviewId && room.members[state.parentPreviewId];
+  if (selected && room.sid && feat('parent')) return parentReportPage(room, selected);
+  const live = !!v.liveSid;
+  const liveN = v.sessions.find((s) => s.id === v.liveSid)?.n;
+  const tabs = [['class', live ? '● Giờ học' : 'Giờ học'], ['students', 'Học sinh'], feat('bank') && ['questions', 'Câu hỏi'], ['report', 'Báo cáo'], ['settings', 'Cài đặt']].filter(Boolean);
+  if (!tabs.some(([k]) => k === state.tab)) state.tab = 'class';
+  const body = { class: tabClass, students: tabStudents, questions: tabQuestions, report: tabReport, settings: tabSettings }[state.tab](v);
+  return `<div class="cls">
+<div class="cls-head"><div><button class="link-btn" data-action="home">‹ Các lớp của cô</button><h1>${esc(v.name)}</h1><div class="muted">${live ? `<span class="live-dot"></span> Buổi ${liveN} đang diễn ra` : v.sessions.length ? `Đã học ${v.sessions.length} buổi` : 'Lớp mới'}</div></div></div>
+<nav class="tabs">${tabs.map(([k, l]) => `<button class="tab ${state.tab === k ? 'on' : ''}" data-action="tab" data-id="${k}">${l}</button>`).join('')}</nav>
+<div class="tab-body">${body}</div></div>`;
+}
+// --- Tab Giờ học: chỉ việc tiếp theo ---
+function tabClass(v) {
+  const room = v.room;
+  if (!v.liveSid) {
+    const next = v.sessions.length + 1;
+    const last = v.allRooms[v.allRooms.length - 1];
+    return `<section class="hero-card"><div class="big-emoji">🎒</div><h2>Buổi ${next}</h2><p class="lead">Đến giờ học thì cô bấm bắt đầu. Các con mở link cũ là vào được ngay.</p><button class="btn primary big-btn" data-action="startSession">▶ Bắt đầu buổi học</button></section>${inviteStrip()}${last ? `<p class="center hint">Buổi ${last.n} (${shortDate(last.createdAt)}) đã xong · <button class="link-btn" data-action="tab" data-id="report">Xem báo cáo</button></p>` : ''}`;
+  }
+  if (room.sid !== v.liveSid) { state.viewSid = v.liveSid; return '<p class="muted">Đang mở buổi học…</p>'; }
+  const inClass = Object.values(room.members).filter((m) => m.joinedAt != null);
+  const online = inClass.filter((m) => m.online).length;
+  const a = active(room);
+  const strip = `<div class="live-strip"><span><b>${online}</b> em đang trong lớp${inClass.length > online ? ` <span class="muted">· ${inClass.length - online} em đã thoát</span>` : ''}</span><span class="actions"><button class="btn sm" data-action="copyLink">⧉ Link mời</button><button class="btn sm" data-action="preview">👀 Màn học sinh</button><button class="btn sm" data-action="end">Kết thúc buổi</button></span></div>`;
+  if (a) return strip + questionFocus(room, a);
+  const lc = lastClosed(room);
+  const result = lc && !state.dismissed[room.sid + '/' + lc.id] && lc.status !== 'skipped' ? resultCard(room, lc) : '';
+  return strip + result + nextActions(v, room);
+}
+function inviteStrip() {
+  return `<section class="invite"><div><b>Mời các con vào lớp</b><div class="share-link">${esc(linkStudent())}</div><div class="hint">Gửi một lần vào nhóm Zalo lớp. Tuần nào cũng dùng link này.</div></div><button class="btn primary" data-action="copyLink">⧉ Sao chép link</button></section>`;
+}
+function nextActions(v, room) {
+  const used = new Set(room.activities.map((a) => a.fromBank).filter(Boolean));
+  const nextQ = feat('bank') ? v.bank.find((q) => !used.has(q.id)) : null;
+  const kinds = quickTypes.filter(([k]) => v.features.kinds[k]);
+  const blocks = [];
+  if (feat('bank')) {
+    blocks.push(nextQ
+      ? `<section class="next-card"><div class="eyebrow">Câu tiếp theo cô đã soạn${nextQ.topic ? ' · ' + esc(nextQ.topic) : ''}</div><div class="q-text">${rich(nextQ.text)}</div><div class="actions"><button class="btn primary big-btn" data-action="bankOpen" data-id="${nextQ.id}">Mời cả lớp trả lời</button><button class="btn" data-action="tab" data-id="questions">Chọn câu khác</button></div></section>`
+      : `<section class="next-card muted-card"><div class="eyebrow">Câu hỏi cô soạn sẵn</div><p>${v.bank.length ? 'Đã hỏi hết các câu đã soạn.' : 'Cô chưa soạn câu nào.'}</p><button class="btn" data-action="tab" data-id="questions">${v.bank.length ? 'Xem / soạn thêm' : '+ Soạn câu hỏi'}</button></section>`);
+  }
+  if (feat('quick') && kinds.length) blocks.push(`<section class="next-card"><div class="eyebrow">Hỏi nhanh · cô chiếu đề, các con bấm đáp án</div><div class="quick-grid">${kinds.map(([k, t]) => `<button class="quick-btn" data-action="open" data-kind="${k}">${t}</button>`).join('')}</div></section>`);
+  if (feat('checkin')) blocks.push(`<section class="next-card"><div class="eyebrow">Hỏi thăm cả lớp</div><div class="quick-grid">${[['start', '🌤️ Đầu giờ'], ['middle', '☕ Giữa giờ'], ['end', '🌿 Cuối giờ']].map(([k, t]) => `<button class="quick-btn soft" data-action="checkin" data-phase="${k}">${t}</button>`).join('')}</div></section>`);
+  if (!blocks.length) blocks.push(`<section class="next-card muted-card"><p>Lớp này không bật câu hỏi. Cô theo dõi các con ở tab <b>Học sinh</b>.</p></section>`);
+  return blocks.join('');
+}
+function questionFocus(room, a) {
+  const inClass = Object.values(room.members).filter((m) => m.joinedAt != null);
+  const done = inClass.filter((m) => a.responses[m.id]).length, total = inClass.length;
+  const waiting = inClass.filter((m) => m.online && !a.responses[m.id]);
+  const title = a.kind === 'checkin' ? a.title : 'Câu ' + numberOf(room, a);
+  const choices = a.kind === 'abcd' && a.choices ? `<div class="q-list">${['A', 'B', 'C', 'D'].map((k) => `<div><b>${k}.</b> ${rich(a.choices[k])}</div>`).join('')}</div>` : '';
+  return `<section class="focus">
+<div class="eyebrow">${esc(title)}${a.kind !== 'checkin' ? ' · ' + labelKind[a.kind] : ''}</div>
+${a.fromBank ? questionBody(a) + choices : a.kind === 'checkin' ? `<div class="q-text">${esc(a.prompt)}</div>` : '<p class="muted">Cô đọc đề trên Zoom/Meet, các con đang bấm đáp án.</p>'}
+<div class="counter"><b>${done}</b><span>/${total} em đã trả lời</span></div>
+<div class="progress big"><div style="width:${total ? 100 * done / total : 0}%"></div></div>
+${waiting.length ? `<div class="waiting"><span class="hint">Còn ${waiting.length} bạn chưa trả lời:</span><div class="waiting-names">${waiting.slice(0, 40).map((m) => `<span>${esc(m.name)}</span>`).join('')}</div></div>` : total && done === total ? '<div class="banner">Cả lớp đã trả lời 👏</div>' : ''}
+${a.kind === 'checkin' ? distribution(a) : ''}
+${a.kind === 'checkin' ? `<button class="btn primary big-btn" data-action="close">Xong phần hỏi thăm</button>` : `${keySelector(room, a)}<button class="btn primary big-btn" data-action="close">Chốt câu này</button><button class="link-btn danger" data-action="skip">Bỏ câu này (không tính)</button>`}
+</section>`;
+}
+function resultCard(room, a) {
+  const key = room.sid + '/' + a.id;
+  if (a.kind === 'checkin') return `<section class="result-card"><div class="row"><div class="eyebrow">Kết quả ${esc(a.title.toLowerCase())}</div><button class="link-btn" data-action="dismiss" data-id="${key}">Ẩn</button></div>${distribution(a)}</section>`;
+  const res = Object.entries(a.responses);
+  const right = res.filter(([, r]) => graded(a, r)).length;
+  const wrongNames = res.filter(([, r]) => !graded(a, r)).map(([id]) => room.members[id]?.name).filter(Boolean);
+  const p = pct(right, res.length);
+  return `<section class="result-card"><div class="row"><div class="eyebrow">Câu ${numberOf(room, a)} vừa chốt · đáp án <b>${esc(keyText(a.kind, a.key))}</b></div><button class="link-btn" data-action="dismiss" data-id="${key}">Ẩn</button></div><div class="result-big"><b>${right}/${res.length}</b> em đúng${p != null ? ` <span class="pct-pill ${p >= 70 ? 'good' : p >= 40 ? 'mid' : 'low'}">${p}%</span>` : ''}</div>${a.kind === 'abcd' || a.kind === 'tf' ? distribution(a) : ''}${wrongNames.length ? `<details class="soft-details"><summary>${wrongNames.length} em chưa đúng</summary><div class="waiting-names">${wrongNames.map((n) => `<span>${esc(n)}</span>`).join('')}</div></details>` : ''}</section>`;
 }
 function keySelector(room, a) {
   const key = state.keys[keyId(room, a)];
-  if (a.fromBank && validKey(a.kind, key)) return `<div class="banner info">Đáp án soạn sẵn: <b>${esc(keyText(a.kind, key))}</b>. Bấm chốt là chấm ngay.</div>`;
+  if (a.fromBank && validKey(a.kind, key)) return `<div class="hint">Đáp án cô đã soạn: <b>${esc(keyText(a.kind, key))}</b> · chốt là chấm luôn.</div>`;
   if (a.kind === 'abcd' || a.kind === 'tf') {
     const opts = a.kind === 'abcd' ? ['A', 'B', 'C', 'D'] : ['Đúng', 'Sai'];
-    return `<div class="answer-label">Đáp án đúng (chọn khi chuẩn bị chốt)</div><div class="answer-choices">${opts.map((v) => `<button class="btn ${key === v ? 'select' : ''}" data-action="key" data-val="${v}">${v}</button>`).join('')}</div>`;
+    return `<div class="key-row"><span class="hint">Đáp án đúng là:</span>${opts.map((v) => `<button class="btn ${key === v ? 'select' : ''}" data-action="key" data-val="${v}">${v}</button>`).join('')}</div>`;
   }
-  if (a.kind === 'tf4') return `<div class="answer-label">Chọn đáp án đúng cho cả bốn ý</div>${['a', 'b', 'c', 'd'].map((k) => `<div class="pair-row"><b>Ý ${k}</b><div class="actions"><button class="btn sm ${key?.[k] === 'Đ' ? 'select' : ''}" data-action="keypart" data-part="${k}" data-val="Đ">Đúng</button><button class="btn sm ${key?.[k] === 'S' ? 'select' : ''}" data-action="keypart" data-part="${k}" data-val="S">Sai</button></div></div>`).join('')}`;
-  return `<div><label class="label" for="rightNum">Đáp án đúng</label><input id="rightNum" data-field="rightNum" class="input" placeholder="Ví dụ: 0,5 hoặc 1/2" value="${esc(key ?? '')}"><div class="hint mt">Hỗ trợ số nguyên, số thập phân và phân số.</div></div>`;
+  if (a.kind === 'tf4') return `<div class="hint">Đáp án đúng từng ý:</div>${['a', 'b', 'c', 'd'].map((k) => `<div class="pair-row"><b>Ý ${k}</b><div class="actions"><button class="btn sm ${key?.[k] === 'Đ' ? 'select' : ''}" data-action="keypart" data-part="${k}" data-val="Đ">Đúng</button><button class="btn sm ${key?.[k] === 'S' ? 'select' : ''}" data-action="keypart" data-part="${k}" data-val="S">Sai</button></div></div>`).join('')}`;
+  return `<div class="key-row"><span class="hint">Đáp án đúng là:</span><input id="rightNum" data-field="rightNum" class="input" style="max-width:200px" placeholder="vd 0,5 hoặc 1/2" value="${esc(key ?? '')}"></div>`;
 }
 function keyText(kind, key) { return kind === 'tf4' ? ['a', 'b', 'c', 'd'].map((k) => k + ' ' + (key?.[k] || '?')).join(', ') : String(key ?? ''); }
 function distribution(a) {
   const values = Object.values(a.responses).map((r) => r.value);
   if (a.kind === 'abcd' || a.kind === 'tf' || a.kind === 'checkin') {
     const choices = a.kind === 'abcd' ? ['A', 'B', 'C', 'D'] : a.kind === 'tf' ? ['Đúng', 'Sai'] : a.options;
-    return `<div class="answer-label mt">Phân bố câu trả lời</div>${choices.map((v) => { const n = values.filter((z) => z === v).length; return `<div class="barrow"><b style="font-size:12px" title="${esc(v)}">${esc(a.kind === 'checkin' ? v.slice(0, 2) : v)}</b><div class="track"><div class="fill ${a.key === v ? 'green' : ''}" style="width:${values.length ? 100 * n / values.length : 0}%"></div></div><span class="muted tiny" style="text-align:right">${n}/${values.length}</span></div>`; }).join('')}`;
+    return `<div class="dist">${choices.map((v) => { const n = values.filter((z) => z === v).length; return `<div class="barrow ${a.kind === 'checkin' ? 'wide' : ''}"><b title="${esc(v)}">${esc(v)}</b><div class="track"><div class="fill ${a.key === v ? 'green' : ''}" style="width:${values.length ? 100 * n / values.length : 0}%"></div></div><span class="muted tiny">${n}</span></div>`; }).join('')}</div>`;
   }
-  if (a.kind === 'tf4') return `<div class="answer-label mt">Số lượt trả lời đủ bốn ý: ${values.filter((v) => v && Object.keys(v).length === 4).length}</div>`;
-  return `<div class="answer-label mt">Các kết quả đã gửi (không công bố danh tính)</div><div class="mutedbox" style="font-size:12px;overflow-wrap:anywhere">${values.length ? values.map((v) => esc(v)).join(' · ') : 'Chưa có câu trả lời'}</div>`;
+  return '';
 }
-// Đề của câu soạn sẵn (dùng ở cả màn cô và màn học sinh).
 function questionBody(a) {
   if (!a.fromBank) return '';
   let html = `<div class="q-text">${rich(a.prompt)}</div>`;
   if (a.kind === 'tf4' && a.statements) html += `<div class="q-list">${['a', 'b', 'c', 'd'].map((k) => `<div><b>${k})</b> ${rich(a.statements[k])}</div>`).join('')}</div>`;
   return html;
 }
-function teacherActive(room, a) {
-  const joined = Object.values(room.members).filter((m) => m.joinedAt != null);
-  const n = joined.filter((m) => a.responses[m.id]).length, total = joined.length;
-  const waiting = joined.filter((m) => m.online && !a.responses[m.id]);
-  const allReady = total > 0 && n === total;
-  const shown = a.kind === 'checkin' ? esc(a.prompt) : a.fromBank ? 'Học sinh đang thấy đề này trên máy mình.' : 'Học sinh thấy: “Câu ' + numberOf(room, a) + ' · Đáp án của em là gì?”';
-  const choicesList = a.kind === 'abcd' && a.choices ? `<div class="q-list">${['A', 'B', 'C', 'D'].map((k) => `<div><b>${k}.</b> ${rich(a.choices[k])}</div>`).join('')}</div>` : '';
-  return `<section class="panel stack"><div class="row wrap"><div><span class="chip pending">● Đang nhận câu trả lời</span><h2 style="margin:9px 0 0">${a.kind === 'checkin' ? esc(a.title) : 'Câu ' + numberOf(room, a) + ' · ' + labelKind[a.kind]}</h2></div><span class="chip ${allReady ? 'good' : ''}">${n}/${total} đã phản hồi</span></div>${questionBody(a)}${choicesList}<div class="mutedbox"><div class="progress"><div style="width:${total ? 100 * n / total : 0}%"></div></div><p class="hint" style="margin:8px 0 0">${shown}</p>${waiting.length ? `<div class="hint" style="margin-top:8px">Đang online, chưa trả lời (${waiting.length}):</div><div class="waiting-names">${waiting.slice(0, 40).map((m) => `<span>${esc(m.name)}</span>`).join('')}</div>` : ''}</div>${distribution(a)}${a.kind === 'checkin' ? `<div class="banner info">☑ Check-in không được chấm điểm. Chỉ tổng hợp kết quả toàn lớp.</div><button class="btn primary block" data-action="close">Kết thúc check-in</button>` : `<div class="divider" style="margin:0"></div>${keySelector(room, a)}<button class="btn primary block" data-action="close">✓ Chốt câu và chấm</button><button class="btn block danger" data-action="skip">Bỏ câu · không tính kết quả</button>`}</section>`;
-}
-function controls(v) {
-  const room = v.room;
-  if (room.status !== 'live' && v.liveSid) {
-    const live = v.sessions.find((s) => s.id === v.liveSid);
-    return `<section class="panel stack"><div><h2 style="margin-bottom:4px">Đang xem lại buổi ${room.n}</h2><p class="muted tight">Buổi ${live?.n} đang diễn ra. Cô vẫn sửa được thông tin của buổi ${room.n} ở bên dưới.</p></div><button class="btn primary block" data-action="viewSession" data-sid="${v.liveSid}">● Quay lại buổi ${live?.n} đang học</button></section>`;
-  }
-  if (room.status !== 'live') {
-    return `<section class="panel stack"><div><h2 style="margin-bottom:4px">${v.sessions.length ? 'Chưa có buổi học nào đang diễn ra' : 'Lớp mới tạo'}</h2><p class="muted tight">Đến giờ học, cô bấm bắt đầu. Học sinh mở lại đúng link cũ là vào buổi mới; danh sách lớp${feat('parent') ? ', thông tin phụ huynh' : ''}${feat('bank') ? ', bộ câu hỏi' : ''} được giữ nguyên.</p></div><button class="btn primary block" data-action="startSession">▶ Bắt đầu buổi ${v.sessions.length + 1} hôm nay</button>${room.sid ? `<div class="hint">Đang xem lại buổi ${room.n} (${formatDate(room.createdAt)}).</div>` : ''}</section>`;
-  }
-  const kinds = quickTypes.filter(([k]) => v.features.kinds[k]);
-  const quick = feat('quick') && kinds.length ? `<div><h2 style="margin-bottom:4px">Câu hỏi nhanh</h2><p class="muted tight">Không cần gõ câu hỏi. Cô chiếu đề trên Zoom/Meet rồi mở một lượt.</p></div><div class="type-grid">${kinds.map(([k, t, d, ic]) => `<button class="type-btn" data-action="open" data-kind="${k}"><span class="type-icon">${ic}</span><strong>${t}</strong><small>${d}</small></button>`).join('')}</div>` : '';
-  const checkin = feat('checkin') ? `<div class="section-title" style="margin:0">Check-in nhanh</div><div class="three">${[['start', '🌤️ Đầu giờ'], ['middle', '☕ Giữa giờ'], ['end', '🌿 Cuối giờ']].map(([k, t]) => `<button class="btn" data-action="checkin" data-phase="${k}">${t}</button>`).join('')}</div>` : '';
-  if (!quick && !checkin) return feat('bank') ? '' : `<section class="panel stack"><h2 style="margin:0">Buổi ${room.n} đang diễn ra</h2><p class="muted tight">Lớp này không bật câu hỏi hay check-in. Cô theo dõi điểm danh ở bên dưới; muốn thêm, bấm ⚙ Tùy chỉnh lớp.</p></section>`;
-  return `<section class="panel stack">${quick}${quick && checkin ? '<div class="divider" style="margin:0"></div>' : ''}${checkin}</section>`;
-}
-function bankPanel(v) {
-  if (!feat('bank')) return '';
-  const room = v.room, live = room.status === 'live' && !active(room);
-  const usedNow = new Set(room.status === 'live' ? room.activities.map((a) => a.fromBank).filter(Boolean) : []);
-  const e = state.bankEdit;
-  const topics = [...new Set(v.bank.map((q) => q.topic || ''))];
-  const list = v.bank.length ? topics.map((t) => `<div class="bank-topic">${t ? esc(t) : '<span class="muted">Chưa phân bài</span>'}</div>${v.bank.filter((q) => (q.topic || '') === t).map((q) => `<div class="bank-row"><div class="bank-main"><span class="chip">${esc(labelKind[q.kind])}</span>${usedNow.has(q.id) ? ' <span class="chip good">✓ đã mở buổi này</span>' : ''}<div class="bank-text">${rich(q.text)}</div><div class="tiny muted">Đáp án: <b>${esc(keyText(q.kind, q.key))}</b></div></div><div class="actions">${live ? `<button class="btn sm primary" data-action="bankOpen" data-id="${q.id}">▶ Mở cho lớp</button>` : ''}<button class="btn sm" data-action="bankEdit" data-id="${q.id}">Sửa</button><button class="btn sm danger" data-action="bankDelete" data-id="${q.id}">Xoá</button></div></div>`).join('')}`).join('') : `<div class="empty-state">Chưa có câu nào. Cô soạn trước giờ học, trong giờ chỉ việc bấm “Mở cho lớp”.</div>`;
-  return `<section class="panel stack"><div class="row wrap"><div><div class="title-eyebrow">Soạn trước · dùng lại mọi buổi</div><h2 style="margin:5px 0 0">📚 Bộ câu hỏi (${v.bank.length})</h2></div>${e ? '' : `<button class="btn sm primary" data-action="bankNew">+ Soạn câu mới</button>`}</div>${e ? bankEditor(e) : ''}${room.status === 'live' && active(room) ? '<div class="hint">Đang có hoạt động mở. Chốt xong mới mở được câu tiếp theo.</div>' : room.status !== 'live' && v.bank.length ? '<div class="hint">Bắt đầu buổi học để mở câu cho lớp.</div>' : ''}<div class="bank-list">${list}</div><div class="hint">Gõ công thức toán giữa hai dấu $, ví dụ <code>$x^2-4x+3=0$</code> hoặc <code>$\\frac{1}{2}$</code>.</div></section>`;
-}
-function bankEditor(e) {
-  const keyBtns = e.kind === 'abcd' ? ['A', 'B', 'C', 'D'] : e.kind === 'tf' ? ['Đúng', 'Sai'] : [];
-  return `<div class="bank-editor stack"><div class="row wrap"><b>${e.id ? 'Sửa câu hỏi' : 'Câu hỏi mới'}</b><div class="chips-wrap" style="max-width:none">${KINDS.map(([k, l]) => `<button class="mini-choice ${e.kind === k ? 'chosen' : ''}" data-action="bankKind" data-id="${k}">${l}</button>`).join('')}</div></div>
-<div><label class="label" for="bankTopic">Bài / chủ đề (để nhóm câu)</label><input id="bankTopic" class="input" data-field="bankTopic" value="${esc(e.topic)}" maxlength="80" placeholder="Ví dụ: Bài 3 – Hàm số bậc hai"></div>
-<div><label class="label" for="bankText">Nội dung câu hỏi</label><textarea id="bankText" class="input" rows="3" data-field="bankText" maxlength="1000" placeholder="Ví dụ: Nghiệm của phương trình $x^2-4x+3=0$ là">${esc(e.text)}</textarea></div>
-${e.kind === 'abcd' ? `<div class="stack" style="gap:6px"><div class="label">Các lựa chọn (bỏ trống nếu chỉ cần A/B/C/D) và đáp án đúng</div>${['A', 'B', 'C', 'D'].map((k) => `<div class="pair-row"><button class="btn sm ${e.key === k ? 'select' : ''}" data-action="bankKey" data-val="${k}" title="Chọn ${k} là đáp án đúng">${e.key === k ? '✓ ' : ''}${k}</button><input class="input" data-field="bankOpt" data-mid="${k}" value="${esc(e.options[k])}" maxlength="300" placeholder="Lựa chọn ${k}"></div>`).join('')}<div class="hint">Bấm vào chữ A/B/C/D để chọn đáp án đúng.</div></div>` : ''}
-${e.kind === 'tf' ? `<div><div class="label">Đáp án đúng</div><div class="answer-choices">${keyBtns.map((k) => `<button class="btn ${e.key === k ? 'select' : ''}" data-action="bankKey" data-val="${k}">${k}</button>`).join('')}</div></div>` : ''}
-${e.kind === 'tf4' ? `<div class="stack" style="gap:6px"><div class="label">Bốn ý và đáp án Đúng/Sai của từng ý</div>${['a', 'b', 'c', 'd'].map((k) => `<div class="pair-row"><b>${k})</b><input class="input" data-field="bankStmt" data-mid="${k}" value="${esc(e.statements[k])}" maxlength="300" placeholder="Ý ${k}"><div class="actions"><button class="btn sm ${e.key?.[k] === 'Đ' ? 'select' : ''}" data-action="bankKeyPart" data-part="${k}" data-val="Đ">Đ</button><button class="btn sm ${e.key?.[k] === 'S' ? 'select' : ''}" data-action="bankKeyPart" data-part="${k}" data-val="S">S</button></div></div>`).join('')}</div>` : ''}
-${e.kind === 'num' ? `<div><label class="label" for="bankNum">Đáp án đúng</label><input id="bankNum" class="input" data-field="bankNum" value="${esc(typeof e.key === 'string' ? e.key : '')}" placeholder="Ví dụ: 0,5 hoặc 1/2 hoặc -3"></div>` : ''}
-<div class="actions"><button class="btn primary" data-action="bankSave">✓ Lưu câu hỏi</button><button class="btn" data-action="bankCancel">Huỷ</button></div></div>`;
-}
-function sessionBar(v) {
-  if (!v.sessions.length) return '';
-  return `<div class="session-bar"><span class="muted tiny">Các buổi:</span>${v.sessions.map((s) => `<button class="session-chip ${s.id === v.room.sid ? 'on' : ''} ${s.id === v.liveSid ? 'live' : ''}" data-action="viewSession" data-sid="${s.id}">${s.id === v.liveSid ? '● ' : ''}Buổi ${s.n} · ${shortDate(s.startedAt)}</button>`).join('')}</div>`;
-}
-function members(room) {
-  const all = Object.values(room.members), joined = all.filter((m) => m.joinedAt != null), online = joined.filter((m) => m.online).length;
-  return `<section class="panel"><div class="row"><h3 style="margin:0">Học sinh đã vào buổi này (${joined.length}/${all.length})</h3>${room.status === 'live' ? `<span class="chip good">${online} online</span>` : ''}</div>${joined.length ? `<div class="response-list">${joined.map((m) => { const s = studentStats(room, m); return `<div class="name-row"><span>${room.status === 'live' ? `<span class="online-dot ${m.online ? 'on' : ''}" title="${m.online ? 'Đang online' : 'Đã thoát'}"></span>` : ''}${esc(m.name)}</span>${hasQuestions() ? `<span class="muted">${s.answered}/${s.eligible} câu</span>` : ''}</div>`; }).join('')}</div>` : `<div class="empty-state"><div class="emoji">👋</div>Chưa có học sinh vào buổi này.<br><small>Học sinh mở link lớp (gửi một lần qua Zalo) là vào.</small></div>`}</section>`;
-}
-function optionGroup(m, field, options) {
-  const obs = observation(m);
-  return `<div class="chips-wrap">${options.map(([value, label]) => `<button type="button" class="mini-choice ${obs[field] === value ? 'chosen' : ''}" data-action="observe" data-mid="${esc(m.id)}" data-field="${field}" data-value="${value}" title="${esc(label)}">${esc(label)}</button>`).join('')}</div>`;
-}
-function rosterBox(compact) {
-  return `<details class="roster-add" ${state.rosterOpen || !compact ? 'open' : ''}><summary>+ Thêm học sinh vào danh sách lớp (dùng cho mọi buổi)</summary><label class="label mt" for="rosterDraft">Mỗi dòng một tên (có thể dán cột họ tên từ Excel); học sinh vào web đúng tên sẽ được ghép với danh sách</label><textarea class="input" rows="3" id="rosterDraft" data-field="rosterDraft" placeholder="Nguyễn Minh Anh&#10;Trần Đức Minh">${esc(state.rosterDraft)}</textarea><button class="btn sm primary mt" data-action="addRoster">Thêm vào danh sách</button></details>`;
-}
-function attendancePanel(room) {
-  const all = Object.values(room.members);
-  const obsOf = (m) => observation(m);
-  const present = all.filter((m) => ['present', 'late'].includes(obsOf(m).attendance)).length;
-  const unknown = all.filter((m) => obsOf(m).attendance === 'unmarked').length;
-  const camOn = all.filter((m) => obsOf(m).camera === 'on').length;
-  const camChecked = all.filter((m) => obsOf(m).camera !== 'unknown').length;
+// --- Tab Học sinh: điểm danh như gọi tên ---
+function tabStudents(v) {
+  const room = v.room, all = Object.values(room.members);
+  const add = `<details class="soft-details" ${state.rosterOpen || !all.length ? 'open' : ''}><summary>+ Thêm học sinh vào danh sách lớp</summary><p class="hint">Mỗi dòng một họ tên, dán cả cột từ Excel được.</p><textarea class="input" rows="3" id="rosterDraft" data-field="rosterDraft" placeholder="Nguyễn Minh Anh&#10;Trần Đức Minh">${esc(state.rosterDraft)}</textarea><button class="btn sm primary mt" data-action="addRoster">Thêm vào danh sách</button></details>`;
+  if (!room.sid) return `<section class="plain"><h2>${all.length} học sinh</h2><p class="hint">Bắt đầu buổi học để điểm danh. Em nào vào lớp bằng link sẽ tự có tên ở đây.</p><div class="name-grid">${all.map((m) => `<div class="name-card"><b>${esc(m.name)}</b></div>`).join('')}</div>${add}</section>`;
+  const modes = [['attendance', '✅ Điểm danh'], ['camera', '📷 Camera'], ['called', '🙋 Khi gọi']].filter(([k]) => feat(k));
+  if (!modes.some(([k]) => k === state.tapMode)) state.tapMode = modes[0]?.[0] || '';
+  const present = all.filter((m) => ['present', 'late'].includes(attendanceOf(m))).length;
+  const absent = all.filter((m) => attendanceOf(m) === 'absent').length;
+  const cam = all.filter((m) => observation(m).camera === 'on').length;
+  const counts = [feat('attendance') && `<span><b>${present}</b> có mặt</span>`, feat('attendance') && absent && `<span><b>${absent}</b> vắng</span>`, feat('camera') && `<span>📷 <b>${cam}</b> bật cam</span>`, !feat('attendance') && `<span><b>${all.filter((m) => m.joinedAt != null).length}</b>/${all.length} em vào lớp</span>`].filter(Boolean).join('');
   const q = normalizeName(state.search || '');
   const shown = q ? all.filter((m) => normalizeName(m.name).includes(q)) : all;
-  const tracking = anyTracking() || feat('parent');
-  if (!room.sid || !tracking) {
-    return `<section class="panel stack"><div><div class="title-eyebrow">Danh sách lớp</div><h2 style="margin:5px 0 0">${all.length} học sinh</h2></div>${rosterBox(!!room.sid)}${all.length ? `<div class="waiting-names">${all.map((m) => `<span class="roster-name">${room.sid && room.status === 'live' ? `<span class="online-dot ${m.online ? 'on' : ''}"></span>` : ''}${esc(m.name)}</span>`).join('')}</div>` : ''}</section>`;
-  }
-  const chips = [feat('attendance') ? `<span class="chip good">${present} có mặt / muộn</span>` : '', feat('camera') ? `<span class="chip good">📷 ${camOn} bật cam${camChecked < all.length ? ` · ${all.length - camChecked} chưa kiểm tra` : ''}</span>` : '', feat('attendance') ? `<span class="chip pending">${unknown} chưa điểm danh</span>` : ''].join('');
-  const head = ['<th>Học sinh</th>', feat('attendance') ? '<th>Điểm danh</th>' : '', feat('camera') ? '<th>Camera</th>' : '', feat('called') ? '<th>Khi cô gọi</th>' : '', feat('note') ? '<th>Nhận xét buổi này</th>' : '', feat('parent') ? '<th>Báo cáo</th>' : ''].join('');
-  const row = (m) => {
-    const o = obsOf(m);
-    return `<tr><td><strong>${esc(m.name)}</strong><div class="tiny muted">${m.joinedAt ? `<span class="online-dot ${m.online ? 'on' : ''}"></span>${m.online ? 'Đang online' : 'Đã vào web'}` : 'Chưa vào web'}</div></td>${feat('attendance') ? `<td>${optionGroup(m, 'attendance', [['present', 'Có mặt'], ['late', 'Muộn'], ['absent', 'Vắng'], ['excused', 'Có phép']])}</td>` : ''}${feat('camera') ? `<td>${optionGroup(m, 'camera', [['on', 'Bật'], ['off', 'Tắt'], ['exempt', 'Miễn']])}</td>` : ''}${feat('called') ? `<td>${optionGroup(m, 'called', [['answered', 'Trả lời'], ['no_answer', 'Không trả lời']])}</td>` : ''}${feat('note') ? `<td><input class="input compact-input" data-field="obsNote" data-mid="${esc(m.id)}" value="${esc(fieldValue('note', m.id, o.note))}" maxlength="500" placeholder="Ghi chú ngắn..."></td>` : ''}${feat('parent') ? `<td><button class="btn sm" data-action="parentPreview" data-mid="${esc(m.id)}">Xem PH ›</button></td>` : ''}</tr>`;
-  };
-  return `<section class="panel stack"><div class="row wrap"><div><div class="title-eyebrow">Theo dõi buổi ${room.n}</div><h2 style="margin:5px 0 0">${anyTracking() ? 'Điểm danh & tương tác' : 'Học sinh'}</h2></div><div class="actions">${chips}</div></div>${anyTracking() ? `<div class="hint">Cô tick thủ công trong giờ học.${feat('camera') ? ' Camera là trạng thái cô quan sát, không phải dữ liệu webcam.' : ''}${feat('called') ? ' “Chưa gọi” không đồng nghĩa với “không trả lời”.' : ''} Học sinh vào web bằng tên chưa có trong danh sách sẽ được tự thêm.</div>` : ''}${rosterBox(true)}${all.length > 8 ? `<input class="input" data-field="search" value="${esc(state.search || '')}" placeholder="🔎 Tìm tên học sinh…">` : ''}${all.length ? `<div class="table-scroll"><table class="attendance-table"><thead><tr>${head}</tr></thead><tbody>${shown.map(row).join('')}</tbody></table></div>` : `<div class="empty-state">Chưa có tên nào trong danh sách.<div class="hint mt">Cô thêm danh sách lớp hoặc để học sinh vào bằng link.</div></div>`}</section>`;
+  const viewing = room.status !== 'live' ? `<div class="hint">Đang xem buổi ${room.n} (${shortDate(room.createdAt)}). ${sessionPicker(v)}</div>` : '';
+  const pick = state.pick && room.members[state.pick] ? studentDetail(room, room.members[state.pick]) : '';
+  return `<section class="plain">${viewing}<div class="counts">${counts}</div>
+${modes.length ? `<div class="tap-modes"><span class="hint">Chạm vào tên để ghi:</span>${modes.map(([k, l]) => `<button class="seg ${state.tapMode === k ? 'on' : ''}" data-action="tapMode" data-id="${k}">${l}</button>`).join('')}</div>` : ''}
+${all.length > 12 ? `<input class="input" data-field="search" value="${esc(state.search || '')}" placeholder="🔎 Tìm tên…">` : ''}
+${pick}
+<div class="name-grid">${shown.map((m) => nameCard(m, modes.length)).join('')}</div>
+${all.length ? '' : '<p class="muted">Chưa có ai trong danh sách.</p>'}
+${add}</section>`;
 }
-function reportTeacher(room) {
-  if (!room.sid) return '';
-  const all = Object.values(room.members);
-  const count = room.activities.filter((a) => a.status === 'graded').length;
-  const joined = all.filter((m) => m.joinedAt != null);
-  const avg = joined.length ? Math.round(joined.reduce((n, m) => n + (studentStats(room, m).participation ?? 0), 0) / joined.length) : null;
-  const present = all.filter((m) => ['present', 'late'].includes(observation(m).attendance)).length;
-  const camOn = all.filter((m) => observation(m).camera === 'on').length;
-  const q = hasQuestions();
-  const stats = [feat('attendance') ? `<div class="stat"><b>${present}/${all.length}</b><small>Có mặt / muộn</small></div>` : `<div class="stat"><b>${joined.length}/${all.length}</b><small>Vào web buổi này</small></div>`, feat('camera') ? `<div class="stat"><b>${camOn}/${all.length}</b><small>Bật camera (cô tick)</small></div>` : '', q ? `<div class="stat"><b>${count}</b><small>Câu đã chấm</small></div>` : '', q ? `<div class="stat"><b>${percent(avg)}</b><small>Tham gia TB của HS vào web</small></div>` : ''].filter(Boolean);
-  const cols = [feat('attendance') && ['Điểm danh', (m, s, o) => attendanceLabels[o.attendance]], feat('camera') && ['Camera', (m, s, o) => cameraLabels[o.camera]], feat('called') && ['Khi cô gọi', (m, s, o) => calledLabels[o.called]], !feat('attendance') && ['Vào web', (m) => (m.joinedAt ? 'Có' : 'Không')], q && ['Đã trả lời', (m, s) => s.answered + '/' + s.eligible], q && ['Đúng', (m, s) => s.correct + '/' + s.answered], q && ['Tham gia', (m, s) => percent(s.participation)], q && ['Chính xác', (m, s) => percent(s.accuracy)]].filter(Boolean);
-  return `<section class="panel stack"><div class="row wrap"><div><div class="title-eyebrow">Tổng hợp buổi ${room.n} · ${formatDate(room.createdAt)}</div><h2 style="margin:5px 0">Báo cáo buổi học</h2></div><button class="btn sm" data-action="csv">↓ CSV buổi này</button></div><div class="${stats.length >= 4 ? 'four' : stats.length === 3 ? 'three' : 'two'}">${stats.join('')}</div>${all.length ? `<div class="table-scroll"><table><thead><tr><th>Học sinh</th>${cols.map((c) => `<th>${c[0]}</th>`).join('')}${feat('parent') ? '<th>PH</th>' : ''}</tr></thead><tbody>${all.map((m) => { const s = studentStats(room, m), o = observation(m); return `<tr><td>${esc(m.name)}</td>${cols.map((c) => `<td>${esc(c[1](m, s, o))}</td>`).join('')}${feat('parent') ? `<td><button class="btn sm" data-action="parentPreview" data-mid="${esc(m.id)}">Xem</button>${o.delivery === 'manually_shared' ? '<div class="delivery">✓ Đã soạn gửi</div>' : ''}</td>` : ''}</tr>`; }).join('')}</tbody></table></div>` : `<p class="muted">Chưa có học sinh.</p>`}<div class="hint">Báo cáo lớp chỉ dành cho giáo viên.${feat('parent') ? ' Gửi phụ huynh bằng báo cáo riêng từng học sinh (nút Xem), không gửi file CSV cả lớp.' : ''}</div></section>`;
+function nameCard(m, tappable) {
+  const att = attendanceOf(m), o = observation(m);
+  const cls = att === 'absent' ? 'absent' : att === 'late' ? 'late' : att === 'excused' ? 'excused' : m.joinedAt != null || att === 'present' ? 'here' : '';
+  const badges = [feat('attendance') && att !== 'unmarked' && `<span class="b-att">${attendanceLabels[att]}</span>`, feat('camera') && o.camera === 'on' && '<span title="Bật camera">📷</span>', feat('camera') && o.camera === 'off' && '<span title="Tắt camera" class="off">📷</span>', feat('camera') && o.camera === 'exempt' && '<span title="Không yêu cầu camera">📷–</span>', feat('called') && o.called === 'answered' && '<span title="Có trả lời khi gọi">🙋✓</span>', feat('called') && o.called === 'no_answer' && '<span title="Không trả lời khi gọi">🙋✗</span>', feat('note') && o.note && '<span title="Có nhận xét">📝</span>'].filter(Boolean).join('');
+  return `<div class="name-card ${cls}"><button class="name-tap" ${tappable ? `data-action="tapStudent" data-mid="${esc(m.id)}"` : 'disabled'}><span class="online-dot ${m.online ? 'on' : ''}"></span><b>${esc(m.name)}</b><span class="badges">${badges || (m.joinedAt ? '' : '<span class="muted tiny">chưa vào lớp</span>')}</span></button><button class="more" data-action="pick" data-mid="${esc(m.id)}" title="Chi tiết, nhận xét">✎</button></div>`;
+}
+function studentDetail(room, m) {
+  const o = observation(m);
+  const group = (field, options) => `<div class="chips-wrap wide">${options.map(([val, label]) => `<button class="mini-choice ${(field === 'attendance' ? attendanceOf(m) : o[field]) === val ? 'chosen' : ''}" data-action="observe" data-mid="${esc(m.id)}" data-field="${field}" data-value="${val}">${label}</button>`).join('')}</div>`;
+  return `<div class="detail"><div class="row"><h3 style="margin:0">${esc(m.name)}</h3><button class="link-btn" data-action="pick" data-mid="">Đóng ✕</button></div>
+${feat('attendance') ? `<div class="detail-row"><span>Điểm danh</span>${group('attendance', [['present', 'Có mặt'], ['late', 'Muộn'], ['absent', 'Vắng'], ['excused', 'Có phép']])}</div>` : ''}
+${feat('camera') ? `<div class="detail-row"><span>Camera</span>${group('camera', [['on', 'Bật'], ['off', 'Tắt'], ['exempt', 'Không yêu cầu']])}</div>` : ''}
+${feat('called') ? `<div class="detail-row"><span>Khi gọi</span>${group('called', [['answered', 'Có trả lời'], ['no_answer', 'Không trả lời']])}</div>` : ''}
+${feat('note') ? `<div><textarea class="input" rows="2" data-field="obsNote" data-mid="${esc(m.id)}" maxlength="500" placeholder="Nhận xét buổi ${room.n} cho ${esc(m.name)}…">${esc(fieldValue('note', m.id, o.note))}</textarea><div class="hint">Tự lưu khi cô ngừng gõ.</div></div>` : ''}
+${feat('parent') ? `<button class="btn sm" data-action="parentPreview" data-mid="${esc(m.id)}">Báo cáo gửi phụ huynh ›</button>` : ''}</div>`;
+}
+function sessionPicker(v) {
+  if (v.sessions.length < 2 && !(v.sessions.length === 1 && !v.liveSid)) return '';
+  return `<span class="session-bar">${v.sessions.map((s) => `<button class="session-chip ${s.id === v.room.sid ? 'on' : ''}" data-action="viewSession" data-sid="${s.id}">${s.id === v.liveSid ? '● ' : ''}Buổi ${s.n} · ${shortDate(s.startedAt)}</button>`).join('')}</span>`;
+}
+// --- Tab Câu hỏi soạn sẵn ---
+function tabQuestions(v) {
+  const room = v.room, canOpen = room.status === 'live' && room.sid === v.liveSid && !active(room);
+  const used = new Set(room.status === 'live' ? room.activities.map((a) => a.fromBank).filter(Boolean) : []);
+  const e = state.bankEdit;
+  const topics = [...new Set(v.bank.map((q) => q.topic || ''))];
+  const list = v.bank.length ? topics.map((t) => `<div class="bank-topic">${t ? esc(t) : 'Chưa phân bài'}</div>${v.bank.filter((q) => (q.topic || '') === t).map((q) => `<div class="bank-row ${used.has(q.id) ? 'used' : ''}"><div class="bank-main"><span class="chip">${esc(labelKind[q.kind])}</span>${used.has(q.id) ? ' <span class="chip good">✓ đã hỏi buổi này</span>' : ''}<div class="bank-text">${rich(q.text)}</div><div class="tiny muted">Đáp án: <b>${esc(keyText(q.kind, q.key))}</b></div></div><div class="actions">${canOpen ? `<button class="btn sm primary" data-action="bankOpen" data-id="${q.id}">Mời cả lớp trả lời</button>` : ''}<button class="btn sm" data-action="bankEdit" data-id="${q.id}">Sửa</button><button class="btn sm danger" data-action="bankDelete" data-id="${q.id}">Xoá</button></div></div>`).join('')}`).join('') : `<div class="empty-state"><div class="big-emoji">📚</div>Chưa có câu nào. Cô soạn trước giờ học, trong giờ chỉ việc bấm “Mời cả lớp trả lời”.</div>`;
+  return `<section class="plain"><div class="row wrap"><h2 style="margin:0">Câu hỏi cô soạn sẵn <span class="muted">(${v.bank.length})</span></h2>${e ? '' : `<button class="btn primary" data-action="bankNew">+ Soạn câu mới</button>`}</div>${e ? bankEditor(e) : ''}${room.status === 'live' && active(room) ? '<div class="hint">Đang có câu mở. Chốt xong mới mời câu tiếp theo được.</div>' : !v.liveSid && v.bank.length ? '<div class="hint">Bắt đầu buổi học để mời cả lớp trả lời.</div>' : ''}<div class="bank-list">${list}</div><div class="hint">Công thức toán: viết giữa hai dấu $, ví dụ <code>$x^2-4x+3=0$</code>, <code>$\\frac{1}{2}$</code>, <code>$\\sqrt{2}$</code>.</div></section>`;
+}
+function bankEditor(e) {
+  return `<div class="bank-editor stack"><div class="row wrap"><b>${e.id ? 'Sửa câu hỏi' : 'Câu hỏi mới'}</b><div class="chips-wrap wide">${KINDS.map(([k, l]) => `<button class="mini-choice ${e.kind === k ? 'chosen' : ''}" data-action="bankKind" data-id="${k}">${l}</button>`).join('')}</div></div>
+<input id="bankTopic" class="input" data-field="bankTopic" value="${esc(e.topic)}" maxlength="80" placeholder="Bài / chủ đề (không bắt buộc), vd: Bài 3 – Hàm số bậc hai">
+<textarea id="bankText" class="input" rows="3" data-field="bankText" maxlength="1000" placeholder="Nội dung câu hỏi, vd: Nghiệm của phương trình $x^2-4x+3=0$ là">${esc(e.text)}</textarea>
+${e.kind === 'abcd' ? `<div class="stack" style="gap:6px"><div class="hint">Các lựa chọn (có thể để trống) · <b>bấm vào chữ cái để chọn đáp án đúng</b></div>${['A', 'B', 'C', 'D'].map((k) => `<div class="pair-row"><button class="btn sm ${e.key === k ? 'select' : ''}" data-action="bankKey" data-val="${k}">${e.key === k ? '✓ ' : ''}${k}</button><input class="input" data-field="bankOpt" data-mid="${k}" value="${esc(e.options[k])}" maxlength="300" placeholder="Lựa chọn ${k}"></div>`).join('')}</div>` : ''}
+${e.kind === 'tf' ? `<div class="key-row"><span class="hint">Đáp án đúng:</span>${['Đúng', 'Sai'].map((k) => `<button class="btn ${e.key === k ? 'select' : ''}" data-action="bankKey" data-val="${k}">${k}</button>`).join('')}</div>` : ''}
+${e.kind === 'tf4' ? `<div class="stack" style="gap:6px"><div class="hint">Bốn ý và đáp án Đúng/Sai từng ý</div>${['a', 'b', 'c', 'd'].map((k) => `<div class="pair-row"><b>${k})</b><input class="input" data-field="bankStmt" data-mid="${k}" value="${esc(e.statements[k])}" maxlength="300" placeholder="Ý ${k}"><div class="actions"><button class="btn sm ${e.key?.[k] === 'Đ' ? 'select' : ''}" data-action="bankKeyPart" data-part="${k}" data-val="Đ">Đ</button><button class="btn sm ${e.key?.[k] === 'S' ? 'select' : ''}" data-action="bankKeyPart" data-part="${k}" data-val="S">S</button></div></div>`).join('')}</div>` : ''}
+${e.kind === 'num' ? `<div class="key-row"><span class="hint">Đáp án đúng:</span><input id="bankNum" class="input" style="max-width:220px" data-field="bankNum" value="${esc(typeof e.key === 'string' ? e.key : '')}" placeholder="vd 0,5 hoặc 1/2 hoặc -3"></div>` : ''}
+<div class="actions"><button class="btn primary" data-action="bankSave">Lưu câu hỏi</button><button class="btn" data-action="bankCancel">Huỷ</button></div></div>`;
+}
+// --- Tab Báo cáo ---
+function tabReport(v) {
+  const room = v.room;
+  if (!room.sid) return `<section class="plain empty-state"><div class="big-emoji">📊</div>Chưa có buổi học nào. Báo cáo sẽ hiện ở đây sau buổi đầu tiên.</section>`;
+  const all = Object.values(room.members), q = hasQuestions();
+  const present = all.filter((m) => ['present', 'late'].includes(attendanceOf(m))).length;
+  const inClass = all.filter((m) => m.joinedAt != null).length;
+  const cam = all.filter((m) => observation(m).camera === 'on').length;
+  const nq = room.activities.filter((a) => a.status === 'graded').length;
+  const acc = classAccuracy(room);
+  const summary = [`<span><b>${all.length}</b> em</span>`, feat('attendance') ? `<span><b>${present}</b> có mặt</span>` : `<span><b>${inClass}</b> vào lớp</span>`, feat('camera') && `<span>📷 <b>${cam}</b> bật cam</span>`, q && `<span><b>${nq}</b> câu hỏi</span>`, q && acc.pct != null && `<span>cả lớp đúng <b>${acc.pct}%</b></span>`].filter(Boolean).join('');
+  const justEnded = state.justEnded === room.sid;
+  const sendList = feat('parent') ? `<section class="plain"><h2>Gửi phụ huynh</h2><p class="hint">Mỗi em một tin nhắn riêng. Bấm “Sao chép tin Zalo” rồi dán vào cuộc trò chuyện với phụ huynh em đó.</p><div class="send-list">${all.map((m) => { const s = studentStats(room, m), o = observation(m); const short = [feat('attendance') && attendanceLabels[attendanceOf(m)], q && s.eligible && `đúng ${s.correct}/${s.eligible} câu`].filter(Boolean).join(' · '); return `<div class="send-row ${o.delivery === 'manually_shared' ? 'sent' : ''}"><div><b>${esc(m.name)}</b><div class="tiny muted">${esc(short)}${o.parentName ? ' · PH: ' + esc(o.parentName) : ''}</div></div><div class="actions">${o.delivery === 'manually_shared' ? '<span class="chip good">✓ Đã gửi</span>' : ''}<button class="btn sm primary" data-action="zalo" data-mid="${esc(m.id)}">⧉ Sao chép tin Zalo</button>${o.parentEmail ? `<button class="btn sm" data-action="mail" data-mid="${esc(m.id)}">✉ Email</button>` : ''}<button class="btn sm" data-action="parentPreview" data-mid="${esc(m.id)}">Xem / In</button></div></div>`; }).join('')}</div></section>` : '';
+  const cols = sessionColumns();
+  return `${justEnded ? `<section class="hero-card done"><div class="big-emoji">🎉</div><h2>Xong buổi ${room.n}!</h2><div class="counts center">${summary}</div>${feat('parent') ? '<p class="lead">Giờ cô gửi báo cáo cho phụ huynh ở bên dưới nhé.</p>' : ''}</section>` : `<section class="plain"><div class="row wrap"><h2 style="margin:0">Buổi ${room.n} · ${formatDate(room.createdAt)}</h2>${sessionPicker(v)}</div><div class="counts">${summary}</div></section>`}
+${sendList}
+<details class="soft-details plain"><summary>Bảng chi tiết buổi ${room.n}</summary><div class="table-scroll"><table><thead><tr><th>Học sinh</th>${cols.map((c) => `<th>${c[0]}</th>`).join('')}</tr></thead><tbody>${all.map((m) => { const s = studentStats(room, m), o = observation(m); return `<tr><td>${esc(m.name)}</td>${cols.map((c) => `<td>${esc(c[1](m, s, o))}</td>`).join('')}</tr>`; }).join('')}</tbody></table></div><button class="btn sm mt" data-action="csv">↓ Tải bảng (Excel/CSV)</button></details>
+${courseReport(v)}`;
 }
 function courseReport(v) {
-  const rooms = v.allRooms; if (!rooms.length) return '';
+  const rooms = v.allRooms; if (rooms.length < 2) return '';
   const all = Object.values(v.room.members), q = hasQuestions();
-  return `<section class="panel stack"><div class="row wrap"><div><div class="title-eyebrow">Từ buổi 1 đến nay · ${rooms.length} buổi</div><h2 style="margin:5px 0">Tổng hợp cả khoá</h2></div><button class="btn sm" data-action="csvCourse">↓ CSV cả khoá</button></div>${all.length ? `<div class="table-scroll"><table><thead><tr><th>Học sinh</th><th>${feat('attendance') ? 'Buổi có mặt' : 'Buổi vào web'}</th>${q ? '<th>Đã trả lời</th><th>Đúng</th><th>Tham gia</th><th>Chính xác</th>' : ''}</tr></thead><tbody>${all.map((m) => { const c = courseStats(rooms, m.id); return `<tr><td>${esc(m.name)}</td><td>${c.attended}/${rooms.length}</td>${q ? `<td>${c.answered}/${c.eligible}</td><td>${c.correct}/${c.answered}</td><td>${percent(c.participation)}</td><td>${percent(c.accuracy)}</td>` : ''}</tr>`; }).join('')}</tbody></table></div>` : ''}<div class="hint">“${feat('attendance') ? 'Buổi có mặt' : 'Buổi vào web'}” tính khi ${feat('attendance') ? 'cô tick Có mặt/Muộn hoặc ' : ''}học sinh có vào web buổi đó. File CSV cả khoá có thêm một cột cho từng buổi.</div></section>`;
+  return `<details class="soft-details plain"><summary>Cả khoá · ${rooms.length} buổi</summary><div class="table-scroll"><table><thead><tr><th>Học sinh</th><th>${feat('attendance') ? 'Có mặt' : 'Vào lớp'}</th>${q ? '<th>Đã trả lời</th><th>Đúng</th>' : ''}</tr></thead><tbody>${all.map((m) => { const c = courseStats(rooms, m.id); return `<tr><td>${esc(m.name)}</td><td>${c.attended}/${rooms.length} buổi</td>${q ? `<td>${c.answered}/${c.eligible}</td><td>${c.correct}/${c.answered}</td>` : ''}</tr>`; }).join('')}</tbody></table></div><button class="btn sm mt" data-action="csvCourse">↓ Tải bảng cả khoá</button></details>`;
 }
 function parentMessage(room, m) {
   const st = studentStats(room, m), o = observation(m);
   const c = courseStats(state.view?.allRooms || [], m.id);
   const lines = [];
-  if (feat('attendance')) lines.push(`- Điểm danh: ${attendanceLabels[o.attendance]}.`);
-  if (feat('camera')) lines.push(`- Camera (quan sát của cô): ${cameraLabels[o.camera]}.`);
-  if (feat('called')) lines.push(`- Khi được gọi: ${calledLabels[o.called]}.`);
-  if (hasQuestions()) lines.push(`- Tham gia trả lời: ${st.answered}/${st.eligible} lượt hợp lệ (${percent(st.participation)}).`, `- Trả lời chính xác: ${st.correct}/${st.answered} (${percent(st.accuracy)}).`);
-  if (feat('checkin')) lines.push(`- Check-in đã thực hiện: ${st.checked}/${st.checkins}.`);
-  if (c.sessions > 1) lines.push(`- Từ đầu khoá: ${feat('attendance') ? 'có mặt' : 'vào lớp'} ${c.attended}/${c.sessions} buổi${hasQuestions() ? `, tham gia ${percent(c.participation)}, chính xác ${percent(c.accuracy)}` : ''}.`);
-  return `Kính gửi Quý Phụ huynh${o.parentName ? ' ' + o.parentName : ''},\n\nCô gửi thông tin buổi ${room.n} lớp ${room.name} ngày ${formatDate(room.createdAt)} của con ${m.name}:\n${lines.join('\n')}\n${feat('note') && o.note ? '\nNhận xét của cô: ' + o.note + '\n' : ''}${hasQuestions() ? '\nCác tỷ lệ phản ánh hoạt động tương tác trên web, không phải tỷ lệ kiến thức đã nắm vững.\n' : ''}\nCảm ơn Quý Phụ huynh đã đồng hành cùng cô và các con.`;
+  if (feat('attendance')) lines.push(`- Điểm danh: ${attendanceLabels[attendanceOf(m)]}.`);
+  if (feat('camera')) lines.push(`- Camera: ${cameraLabels[o.camera]}.`);
+  if (feat('called')) lines.push(`- Khi cô gọi: ${calledLabels[o.called]}.`);
+  if (hasQuestions() && st.eligible) lines.push(`- Trả lời ${st.answered}/${st.eligible} câu, đúng ${st.correct} câu.`);
+  if (c.sessions > 1) lines.push(`- Từ đầu khoá: ${feat('attendance') ? 'có mặt' : 'vào lớp'} ${c.attended}/${c.sessions} buổi${hasQuestions() && c.eligible ? `, đúng ${c.correct}/${c.eligible} câu` : ''}.`);
+  return `Kính gửi Quý Phụ huynh${o.parentName ? ' ' + o.parentName : ''},\n\nCô gửi thông tin buổi ${room.n} lớp ${room.name} (${formatDate(room.createdAt)}) của con ${m.name}:\n${lines.join('\n')}\n${feat('note') && o.note ? '\nNhận xét của cô: ' + o.note + '\n' : ''}\nCảm ơn Quý Phụ huynh đã đồng hành cùng cô và các con.`;
 }
 function parentReportPage(room, m) {
   const st = studentStats(room, m), o = observation(m);
   const c = courseStats(state.view?.allRooms || [], m.id);
-  let sec = 0;
-  const info = [feat('attendance') && `<div><small>Điểm danh</small><strong>${attendanceLabels[o.attendance]}</strong></div>`, feat('camera') && `<div><small>Camera (cô quan sát)</small><strong>${cameraLabels[o.camera]}</strong></div>`, feat('called') && `<div><small>Khi cô gọi</small><strong>${calledLabels[o.called]}</strong></div>`].filter(Boolean).join('');
-  const course = c.sessions > 1 ? ` Từ đầu khoá: ${feat('attendance') ? 'có mặt' : 'vào lớp'} ${c.attended}/${c.sessions} buổi${hasQuestions() ? `, tham gia ${percent(c.participation)}, chính xác ${percent(c.accuracy)}` : ''}.` : '';
-  return `<div class="parent-page"><div class="row wrap no-print" style="margin-bottom:16px"><button class="btn" data-action="backTeacher">← Quay về quản lý lớp</button><span class="chip pending">Bản xem trước · ${o.delivery === 'manually_shared' ? 'Đã soạn gửi' : 'Chưa gửi'}</span></div><div class="report-paper panel"><div class="report-accent"></div><div class="row wrap"><div><div class="title-eyebrow">LỚP MÌNH LIVE · BÁO CÁO CÁ NHÂN</div><h1 style="font-size:25px;margin:7px 0">BÁO CÁO BUỔI ${room.n}</h1><div class="muted">${esc(room.name)} · ${formatDate(room.createdAt)}</div></div><span class="chip">Dành riêng cho phụ huynh</span></div><div class="divider"></div><div class="row wrap"><div><div class="label">Học sinh</div><h2 style="margin:4px 0">${esc(m.name)}</h2></div><div class="muted" style="font-size:12px">Báo cáo cá nhân, không bao gồm thông tin của học sinh khác</div></div>${info ? `<h3 style="margin:16px 0 10px">${++sec}. Nề nếp trong buổi học</h3><div class="report-info">${info}</div>` : ''}${hasQuestions() ? `<h3 style="margin:20px 0 10px">${++sec}. Tham gia học tập</h3><div class="report-grid"><div class="stat"><small>Tỷ lệ tham gia</small><b>${percent(st.participation)}</b><small>${st.answered}/${st.eligible} câu</small></div><div class="stat"><small>Tỷ lệ chính xác</small><b>${percent(st.accuracy)}</b><small>${st.correct}/${st.answered} câu đúng</small></div></div>` : ''}${feat('checkin') || course ? `<p class="hint mt">${feat('checkin') ? `Check-in: ${st.checked}/${st.checkins} lượt. Không tính check-in vào tỷ lệ chính xác.` : ''}${course}</p>` : ''}${feat('note') ? `<h3 style="margin:20px 0 10px">${++sec}. Nhận xét của giáo viên</h3><div class="note-paper">${o.note ? esc(o.note) : '<span class="muted">Chưa có nhận xét riêng cho buổi học này.</span>'}</div>` : ''}<div class="divider"></div><p class="hint">Lưu ý: Báo cáo thể hiện các quan sát thủ công của giáo viên và số lượt trả lời trên web. Đây không phải thước đo toàn bộ năng lực, mức độ tập trung hay phần trăm kiến thức học sinh đã nắm.</p><div class="tiny muted" style="text-align:right">Lớp Mình Live · ${formatDate(room.endedAt || now())}</div></div><section class="panel stack no-print" style="margin-top:16px"><div><h3 style="margin-bottom:6px">Duyệt thông tin & gửi phụ huynh</h3><p class="hint tight">Bước này chỉ tạo tài liệu và nội dung tin nhắn; cô tự gửi qua Zalo hoặc email. Tên và email phụ huynh được nhớ cho các buổi sau.</p></div><div class="two"><div><label class="label" for="guardianName">Tên phụ huynh (không bắt buộc)</label><input id="guardianName" class="input" data-field="parentName" data-mid="${esc(m.id)}" value="${esc(fieldValue('parentName', m.id, o.parentName))}" placeholder="Phụ huynh của con..."></div><div><label class="label" for="guardianEmail">Email phụ huynh (nếu gửi email)</label><input id="guardianEmail" class="input" data-field="parentEmail" data-mid="${esc(m.id)}" value="${esc(fieldValue('parentEmail', m.id, o.parentEmail))}" placeholder="phuhuynh@example.com" type="email"></div></div>${feat('note') ? `<div><label class="label" for="guardianNote">Nhận xét riêng của cô (buổi ${room.n})</label><textarea id="guardianNote" rows="3" class="input" data-field="note" data-mid="${esc(m.id)}" placeholder="Nhận xét mang tính xây dựng, dựa trên quan sát...">${esc(fieldValue('note', m.id, o.note))}</textarea><div class="hint mt">Tự lưu sau khi cô ngừng gõ.</div></div>` : ''}<div class="actions"><button class="btn primary" data-action="printReport">↧ In / Lưu PDF</button><button class="btn" data-action="copyParent">⧉ Sao chép tin nhắn gửi Zalo</button><button class="btn" data-action="emailParent">✉ Soạn email cho PH</button></div><div class="banner warn">Thông tin phụ huynh chỉ máy của cô đọc được. Chỉ nhập khi có sự đồng ý của phụ huynh.</div></section></div>`;
+  const info = [feat('attendance') && `<div><small>Điểm danh</small><strong>${attendanceLabels[attendanceOf(m)]}</strong></div>`, feat('camera') && `<div><small>Camera</small><strong>${cameraLabels[o.camera]}</strong></div>`, feat('called') && `<div><small>Khi cô gọi</small><strong>${calledLabels[o.called]}</strong></div>`].filter(Boolean).join('');
+  return `<div class="parent-page"><div class="row wrap no-print" style="margin-bottom:16px"><button class="btn" data-action="backTeacher">← Quay lại</button><span class="chip ${o.delivery === 'manually_shared' ? 'good' : 'pending'}">${o.delivery === 'manually_shared' ? '✓ Đã gửi' : 'Chưa gửi'}</span></div>
+<div class="report-paper panel"><div class="report-accent"></div><div class="title-eyebrow">Lớp Mình Live · Báo cáo buổi học</div><h1 style="font-size:24px;margin:7px 0">${esc(m.name)}</h1><div class="muted">${esc(room.name)} · Buổi ${room.n} · ${formatDate(room.createdAt)}</div><div class="divider"></div>
+${info ? `<div class="report-info">${info}</div>` : ''}
+${hasQuestions() ? `<div class="report-grid mt"><div class="stat"><small>Số câu đã trả lời</small><b>${st.answered}/${st.eligible}</b></div><div class="stat"><small>Số câu đúng</small><b>${st.correct}/${st.answered}</b></div></div>` : ''}
+${c.sessions > 1 ? `<p class="hint mt">Từ đầu khoá: ${feat('attendance') ? 'có mặt' : 'vào lớp'} ${c.attended}/${c.sessions} buổi${hasQuestions() && c.eligible ? `, đúng ${c.correct}/${c.eligible} câu` : ''}.</p>` : ''}
+${feat('note') ? `<h3 style="margin:18px 0 8px">Nhận xét của cô</h3><div class="note-paper">${o.note ? esc(o.note) : '<span class="muted">Chưa có nhận xét.</span>'}</div>` : ''}
+<div class="divider"></div><p class="hint">Số câu trả lời phản ánh việc con tham gia trên web trong buổi học, không phải toàn bộ năng lực của con.</p></div>
+<section class="plain no-print" style="margin-top:16px"><h3>Gửi cho phụ huynh</h3><div class="two"><input class="input" data-field="parentName" data-mid="${esc(m.id)}" value="${esc(fieldValue('parentName', m.id, o.parentName))}" placeholder="Tên phụ huynh (không bắt buộc)"><input class="input" type="email" data-field="parentEmail" data-mid="${esc(m.id)}" value="${esc(fieldValue('parentEmail', m.id, o.parentEmail))}" placeholder="Email phụ huynh (nếu gửi email)"></div>${feat('note') ? `<textarea class="input mt" rows="3" data-field="note" data-mid="${esc(m.id)}" placeholder="Nhận xét của cô cho buổi này…">${esc(fieldValue('note', m.id, o.note))}</textarea>` : ''}<div class="hint">Tên, email phụ huynh được nhớ cho các buổi sau. Tự lưu khi cô ngừng gõ.</div><div class="actions mt"><button class="btn primary" data-action="zalo" data-mid="${esc(m.id)}">⧉ Sao chép tin Zalo</button><button class="btn" data-action="mail" data-mid="${esc(m.id)}">✉ Soạn email</button><button class="btn" data-action="printReport">↧ In / Lưu PDF</button></div></section></div>`;
 }
-let qrFor = '', qrUrl = '';
-function shareBox(v) {
-  const link = linkStudent();
-  if (qrFor !== link) {
-    qrFor = link; qrUrl = '';
-    QRCode.toDataURL(link, { margin: 1, width: 300 }).then((u) => { if (qrFor === link) { qrUrl = u; render(); } }).catch(() => {});
-  }
-  return `<section class="panel stack"><div class="title-eyebrow">Link lớp cho học sinh · dùng cả khoá</div><div class="row"><div class="code">${esc(v.code)}</div><button class="btn sm" data-action="copy">⧉ Mã</button></div><div class="share-link">${esc(link)}</div><button class="btn sm" data-action="copyLink">⧉ Sao chép link gửi Zalo / chat Zoom</button><div class="hint">Gửi một lần đầu khoá. Các tuần sau học sinh mở lại đúng link này.</div>${qrUrl ? `<div class="qr-box"><img src="${qrUrl}" alt="Mã QR vào lớp"></div>` : ''}</section>`;
-}
-function manageBox(v) {
-  const room = v.room;
+// --- Tab Cài đặt ---
+function tabSettings(v) {
   const on = FEATURES.filter((x) => v.features[x.id]);
-  return `<section class="panel stack"><h3 style="margin:0">Quản lý</h3>${room.status === 'live' ? `<button class="btn block" data-action="end">■ Kết thúc buổi ${room.n} & tổng hợp báo cáo</button>` : ''}<div class="tiny muted">Lớp đang dùng: ${on.map((x) => x.icon + ' ' + x.label).join(' · ') || 'chưa bật tính năng nào'} <a href="#" data-action="customize">Tùy chỉnh</a></div><div class="mutedbox"><div class="tiny muted">Mã quản lý (giữ bí mật) — dùng để mở lớp này trên máy khác</div><div class="row" style="margin-top:4px"><b class="code" style="font-size:15px">${esc(v.adminKey || '')}</b><button class="btn sm" data-action="copyKey">⧉</button></div></div><button class="btn block danger" data-action="deleteClass">Xoá lớp & mọi dữ liệu</button></section>`;
+  return `<section class="plain"><h2>Mời các con vào lớp</h2><div class="invite-big"><div>${qrImage()}</div><div class="stack" style="gap:8px"><div class="share-link">${esc(linkStudent())}</div><div>Mã lớp: <span class="code">${esc(v.code)}</span></div><div class="actions"><button class="btn primary" data-action="copyLink">⧉ Sao chép link</button><button class="btn" data-action="copy">⧉ Sao chép mã</button></div><div class="hint">Link dùng cả khoá. Khi chia sẻ màn hình, các con có thể quét mã QR bằng điện thoại.</div></div></div></section>
+<section class="plain"><div class="row wrap"><h2 style="margin:0">Lớp đang dùng</h2><button class="btn" data-action="customize">Thay đổi</button></div><div class="feat-chips">${on.map((x) => `<span>${x.icon} ${x.label}</span>`).join('') || '<span class="muted">Chưa bật gì</span>'}</div></section>
+<section class="plain"><h2>Mở lớp trên máy khác</h2><p class="hint">Đổi máy hoặc trình duyệt: ở trang chủ chọn “Dùng lớp đã tạo trên máy khác?”, nhập mã lớp và mã quản lý này. Giữ bí mật mã quản lý.</p><div class="row" style="justify-content:flex-start"><span class="code">${esc(v.adminKey || '')}</span><button class="btn sm" data-action="copyKey">⧉ Sao chép</button></div></section>
+<section class="plain danger-zone"><h2>Xoá lớp</h2><p class="hint">Xoá hẳn lớp và dữ liệu mọi buổi học. Không khôi phục được.</p><button class="btn danger" data-action="deleteClass">Xoá lớp này</button></section>`;
 }
-function teacher(v) {
-  if (state.setup?.editing) return setupView();
-  const room = v.room;
-  const selected = state.parentPreviewId && room.members[state.parentPreviewId];
-  if (selected && room.sid && feat('parent')) return parentReportPage(room, selected);
-  const st = getStatus(room), a = active(room);
-  const q = hasQuestions();
-  const stats = room.sid ? `<div class="${q ? 'four' : 'two'}"><div class="stat"><b>${st.count}</b><small>Sĩ số danh sách</small></div>${q ? `<div class="stat"><b>${st.opened}</b><small>Lượt đã mở</small></div><div class="stat"><b>${st.graded}</b><small>Đã chấm</small></div>` : ''}<div class="stat"><b>${Object.values(room.members).filter((m) => m.joinedAt != null).length}</b><small>Vào web buổi này</small></div></div>` : '';
-  return `${headline(v, true)}${sessionBar(v)}<div class="layout"><div class="stack">${stats}${a ? teacherActive(room, a) : controls(v)}${bankPanel(v)}</div><div class="stack">${shareBox(v)}${room.sid ? members(room) : ''}${manageBox(v)}</div></div><div class="stack" style="margin-top:18px">${attendancePanel(room)}${reportTeacher(room)}${courseReport(v)}</div>`;
+
+// ===== Học sinh =====
+function studentHome() {
+  const named = state.joinClassName && !state.showCodeInput;
+  return `<div class="student-shell s-home"><div class="big-emoji">👋</div><h1 class="home-title">Chào con!</h1>
+${named ? `<p class="lead">Con đang vào lớp <b>${esc(state.joinClassName)}</b>.</p>` : `<p class="lead">Nhập mã lớp cô gửi và tên của con nhé.</p><input id="joinCode" data-field="joinCode" class="input big" value="${esc(state.joinCode)}" inputmode="numeric" maxlength="6" placeholder="Mã lớp (6 số)">`}
+<label class="s-label" for="joinName">Con tên là gì?</label><input id="joinName" data-field="joinName" class="input big" value="${esc(state.joinName)}" maxlength="60" placeholder="Họ và tên đầy đủ" autocomplete="name">
+<button class="btn primary big-btn" data-action="join">Vào lớp</button>
+<p class="hint center">Ghi đúng họ tên, giống nhau ở mọi buổi nhé.${named ? ' <button class="link-btn" data-action="showCode">Vào lớp khác?</button>' : ''}</p></div>`;
+}
+function student(v) {
+  const uid = state.conn.uid, room = v.room, name = raw.member?.name || '';
+  const first = name.split(' ').pop();
+  let body;
+  if (!room) {
+    const last = v.history.filter((r) => r.members[uid].joinedAt != null).pop();
+    body = last && v.history[v.history.length - 1] === last ? endSummary(last, uid) : `<div class="s-state"><div class="big-emoji">🕒</div><h2>Lớp chưa bắt đầu</h2><p class="lead">Khi cô bắt đầu, màn hình này tự chuyển. Con cứ để trang mở nhé.</p></div>`;
+    body += studentHistory(v, uid);
+  } else {
+    const a = active(room), m = room.members[uid];
+    if (a) body = studentQuestion(room, a, m);
+    else {
+      const lc = lastClosed(room);
+      body = lc && lc.status === 'graded' ? studentResult(room, lc, m) : '';
+      body += `<div class="s-state small"><div class="big-emoji">☕</div><h2>${lc ? 'Chờ câu tiếp theo nhé' : 'Cô chưa hỏi gì'}</h2><p class="muted">Khi cô hỏi, câu hỏi sẽ hiện ngay ở đây.</p></div>`;
+    }
+  }
+  return `<div class="student-shell"><div class="s-top"><span>${esc(v.name)}${room ? ` · <span class="live-dot"></span> Buổi ${room.n}` : ''}</span><span>${isPreview() ? '<button class="link-btn" data-action="teacher">← Về màn cô</button>' : `Chào <b>${esc(first)}</b> · <button class="link-btn" data-action="home">đổi</button>`}</span></div>${isPreview() ? '<div class="banner info">Cô đang xem thử. Câu trả lời ở đây không tính vào lớp.</div>' : ''}${body}</div>`;
+}
+function studentQuestion(room, a, m) {
+  const own = a.responses[m.id];
+  const head = a.kind === 'checkin' ? `<div class="q-text">${esc(a.prompt)}</div>` : a.fromBank ? questionBody(a) : '<div class="q-text">Con chọn đáp án nhé</div><p class="muted">Đề bài cô đang chiếu trên Zoom/Meet.</p>';
+  return `<section class="s-question"><div class="eyebrow">${a.kind === 'checkin' ? esc(a.title) : 'Câu ' + numberOf(room, a)}</div>${head}${studentAnswer(room, a, m)}${own ? `<div class="s-ok">👍 Cô đã nhận câu trả lời của con.<br><small>Con vẫn đổi được cho tới khi cô chốt.</small></div>` : ''}</section>`;
 }
 function studentAnswer(room, a, m) {
   const own = a.responses[m.id]?.value; const draft = state.studentDrafts[a.id] || {};
-  if (a.kind === 'checkin') return `<div class="stack" style="gap:9px">${a.options.map((o) => `<button class="btn block ${own === o ? 'select' : ''}" style="text-align:left;min-height:49px" data-action="answer" data-value="${esc(o)}">${esc(o)} ${own === o ? ' ✓' : ''}</button>`).join('')}</div>`;
-  if (a.kind === 'abcd' && a.choices) return `<div class="stack" style="gap:9px">${['A', 'B', 'C', 'D'].map((v) => `<button class="btn block choice-btn ${own === v ? 'select' : ''}" data-action="answer" data-value="${v}"><b>${v}.</b> ${rich(a.choices[v])}${own === v ? ' ✓' : ''}</button>`).join('')}</div>`;
-  if (a.kind === 'abcd' || a.kind === 'tf') { const opts = a.kind === 'abcd' ? ['A', 'B', 'C', 'D'] : ['Đúng', 'Sai']; return `<div class="question-grid">${opts.map((v) => `<button class="btn option ${a.kind === 'tf' ? 'tf' : ''} ${own === v ? 'active' : ''}" data-action="answer" data-value="${v}">${v}</button>`).join('')}</div>`; }
-  if (a.kind === 'tf4') { const all = draft && Object.keys(draft).length ? draft : (own || {}); return `<div class="hint" style="margin-bottom:12px">Chọn Đúng hoặc Sai cho cả bốn ý. Khi đủ 4 ý, hệ thống tự ghi nhận.</div>${['a', 'b', 'c', 'd'].map((k) => `<div class="pair-row"><b>Ý ${k}</b><div class="actions"><button class="btn ${all[k] === 'Đ' ? 'select' : ''}" data-action="part" data-part="${k}" data-value="Đ">Đúng</button><button class="btn ${all[k] === 'S' ? 'select' : ''}" data-action="part" data-part="${k}" data-value="S">Sai</button></div></div>`).join('')}`; }
-  return `<div class="stack" style="gap:10px"><input data-field="numberDraft" class="input" value="${esc(state.studentDrafts[a.id] ?? own ?? '')}" placeholder="Ví dụ: -2 hoặc 0,5 hoặc 1/2" inputmode="decimal"><button class="btn primary block" data-action="number">Gửi đáp án</button><div class="hint">Chỉ nhập kết quả bằng số.${own != null ? ' Đã gửi: <b>' + esc(own) + '</b>' : ''}</div></div>`;
+  if (a.kind === 'checkin') return `<div class="s-choices">${a.options.map((o) => `<button class="s-choice ${own === o ? 'on' : ''}" data-action="answer" data-value="${esc(o)}">${esc(o)}</button>`).join('')}</div>`;
+  if (a.kind === 'abcd' && a.choices) return `<div class="s-choices">${['A', 'B', 'C', 'D'].map((v) => `<button class="s-choice ${own === v ? 'on' : ''}" data-action="answer" data-value="${v}"><b>${v}</b><span>${rich(a.choices[v])}</span></button>`).join('')}</div>`;
+  if (a.kind === 'abcd' || a.kind === 'tf') { const opts = a.kind === 'abcd' ? ['A', 'B', 'C', 'D'] : ['Đúng', 'Sai']; return `<div class="s-grid ${a.kind}">${opts.map((v) => `<button class="s-big ${own === v ? 'on' : ''}" data-action="answer" data-value="${v}">${v}</button>`).join('')}</div>`; }
+  if (a.kind === 'tf4') { const all = draft && Object.keys(draft).length ? draft : (own || {}); return `<div class="hint">Chọn Đúng hoặc Sai cho cả 4 ý, đủ 4 ý là gửi.</div>${['a', 'b', 'c', 'd'].map((k) => `<div class="pair-row s-pair"><b>Ý ${k}</b><div class="actions"><button class="btn ${all[k] === 'Đ' ? 'select' : ''}" data-action="part" data-part="${k}" data-value="Đ">Đúng</button><button class="btn ${all[k] === 'S' ? 'select' : ''}" data-action="part" data-part="${k}" data-value="S">Sai</button></div></div>`).join('')}`; }
+  return `<div class="s-num"><input data-field="numberDraft" class="input big" value="${esc(state.studentDrafts[a.id] ?? own ?? '')}" placeholder="vd: -2 hoặc 0,5 hoặc 1/2" inputmode="decimal"><button class="btn primary big-btn" data-action="number">Gửi</button></div>${own != null ? `<div class="hint center">Con đã gửi: <b>${esc(own)}</b></div>` : ''}`;
 }
-function studentActive(room, a, m) {
-  const own = a.responses[m.id];
-  return `<section class="panel stack student-head"><div class="row"><span class="pill"><span class="dot"></span> Cô vừa mở hoạt động</span><span class="chip">${a.kind === 'checkin' ? 'Check-in' : 'Câu ' + numberOf(room, a)}</span></div><div><div class="title-eyebrow">${a.kind === 'checkin' ? esc(a.title) : esc(labelKind[a.kind])}</div>${a.fromBank ? questionBody(a) : `<h2 style="margin:8px 0 0">${esc(a.prompt)}</h2>`}</div>${studentAnswer(room, a, m)}<div class="banner ${own ? '' : 'info'}">${own ? '✓ Đã ghi nhận câu trả lời của con. Con có thể thay đổi cho đến khi cô chốt.' : 'Chọn một đáp án để gửi tới cô.'}</div></section>`;
+function studentResult(room, a, m) {
+  const r = a.responses[m.id];
+  const ans = esc(keyText(a.kind, a.key));
+  if (!r) return `<div class="s-result none"><div class="big-emoji">🤔</div><h2>Câu ${numberOf(room, a)} con chưa trả lời</h2><p>Đáp án đúng là <b>${ans}</b>.</p></div>`;
+  if (graded(a, r)) return `<div class="s-result good"><div class="big-emoji">🎉</div><h2>Đúng rồi!</h2><p>Câu ${numberOf(room, a)} · đáp án <b>${ans}</b></p></div>`;
+  return `<div class="s-result bad"><div class="big-emoji">💪</div><h2>Chưa đúng rồi</h2><p>Đáp án đúng là <b>${ans}</b>${a.kind === 'tf4' ? ` · con đúng ${correctParts(a, r)}/4 ý` : ''}. Câu sau cố lên nhé!</p></div>`;
 }
-function studentReport(room, m, ended) {
-  if (!feat('selfReport')) return ended ? `<section class="panel"><div class="callout">🌱 Cảm ơn con đã tham gia buổi ${room.n}!</div></section>` : '';
-  const s = studentStats(room, m);
-  const last = [...room.activities].reverse().find((a) => a.status === 'graded' && a.responses[m.id]);
-  const q = hasQuestions();
-  return `<section class="panel stack"><div><div class="title-eyebrow">${ended ? 'Báo cáo buổi ' + room.n + ' · ' + formatDate(room.createdAt) : 'Tiến độ buổi ' + room.n}</div><h2 style="margin:5px 0">${ended ? 'Buổi học vừa rồi con học thế nào?' : 'Cùng theo dõi nhé!'}</h2></div>${q ? `<div class="report-grid"><div class="stat"><small>Tỷ lệ tham gia</small><b>${percent(s.participation)}</b><small>${s.answered}/${s.eligible} câu đã chấm</small></div><div class="stat"><small>Tỷ lệ chính xác</small><b>${percent(s.accuracy)}</b><small>${s.correct}/${s.answered} câu trả lời</small></div></div>` : ''}${feat('checkin') ? `<div class="mutedbox"><div class="row"><span>Check-in hoàn thành</span><b>${s.checked}/${s.checkins}</b></div><div class="progress" style="margin-top:9px"><div style="width:${s.checkins ? 100 * s.checked / s.checkins : 0}%"></div></div></div>` : ''}${last ? `<div class="banner ${graded(last, last.responses[m.id]) ? '' : 'info'}">${graded(last, last.responses[m.id]) ? '✓' : 'ℹ'} Lượt được chấm gần nhất: <b>${graded(last, last.responses[m.id]) ? 'Chính xác!' : 'Chưa chính xác'}</b>${last.kind === 'tf4' ? ` (${correctParts(last, last.responses[m.id])}/4 ý đúng)` : ''}.</div>` : ''}${ended ? `<div class="callout">🌱 Cảm ơn con đã tham gia! Báo cáo này phản ánh mức độ tham gia trả lời, không phải tỷ lệ kiến thức con đã nắm vững.</div>` : q ? `<div class="hint">Phần trăm chỉ tính các câu đã được cô chốt và chấm. Các câu bị bỏ qua không tính.</div>` : ''}</section>`;
+function endSummary(room, uid) {
+  const m = room.members[uid], s = studentStats(room, m);
+  if (!feat('selfReport') || !hasQuestions() || !s.eligible) return `<div class="s-state"><div class="big-emoji">🌟</div><h2>Hết giờ rồi!</h2><p class="lead">Cảm ơn con đã tham gia buổi ${room.n}. Hẹn con buổi sau nhé.</p></div>`;
+  const ratio = s.correct / s.eligible;
+  const cheer = ratio >= 0.8 ? 'Giỏi lắm! 🌟' : ratio >= 0.5 ? 'Làm tốt lắm! 👍' : s.answered ? 'Cố lên, buổi sau sẽ tốt hơn! 💪' : 'Buổi sau con nhớ trả lời cùng cả lớp nhé!';
+  return `<div class="s-state"><div class="big-emoji">🎒</div><h2>Hết giờ rồi!</h2><p class="lead">Buổi ${room.n} con trả lời <b>${s.answered}/${s.eligible}</b> câu, đúng <b>${s.correct}</b> câu.</p><p class="cheer">${cheer}</p><p class="muted">Khi cô bắt đầu buổi sau, màn hình này tự chuyển.</p></div>`;
 }
 function studentHistory(v, uid) {
   if (!feat('selfReport')) return '';
   const past = v.history.filter((r) => r.members[uid].joinedAt != null).reverse();
-  if (!past.length) return '';
-  return `<section class="panel stack"><div class="title-eyebrow">Các buổi con đã học</div>${past.map((r) => { const s = studentStats(r, r.members[uid]); return `<div class="name-row"><span>Buổi ${r.n} · ${shortDate(r.createdAt)}</span><span class="muted">${hasQuestions() ? `tham gia ${percent(s.participation)} · đúng ${percent(s.accuracy)}` : 'đã vào lớp'}</span></div>`; }).join('')}</section>`;
-}
-function student(v) {
-  const uid = state.conn.uid;
-  const room = v.room;
-  const name = raw.member?.name || '';
-  let body;
-  if (!room) {
-    const last = v.history.filter((r) => r.members[uid].joinedAt != null).pop();
-    body = `<section class="panel empty-state"><div class="emoji">🕒</div><h3 style="color:var(--ink);margin-bottom:4px">Chưa đến giờ học</h3><p class="muted tight">Khi cô bắt đầu buổi học, màn hình này tự chuyển. Con cứ để trang mở.</p></section>${last ? studentReport(last, last.members[uid], true) : ''}${studentHistory(v, uid)}`;
-  } else {
-    const m = room.members[uid];
-    const a = active(room);
-    const s = studentStats(room, m);
-    const side = !a ? studentReport(room, m, false) : feat('selfReport') && hasQuestions() ? `<div class="panel"><div class="title-eyebrow">Tiến độ buổi ${room.n}</div><div class="row" style="margin-top:6px"><b>${s.answered} câu đã trả lời và chấm</b><span class="chip">${percent(s.participation)}</span></div></div>` : '';
-    body = `${a ? studentActive(room, a, m) : `<section class="panel empty-state"><div class="emoji">☕</div><h3 style="color:var(--ink);margin-bottom:4px">${hasQuestions() || feat('checkin') ? 'Đang chờ câu hỏi tiếp theo' : 'Con đã vào lớp'}</h3><p class="muted tight">${hasQuestions() || feat('checkin') ? 'Khi cô mở lượt mới, bảng trả lời sẽ xuất hiện ở đây.' : 'Cô đã ghi nhận con có mặt trên web buổi này.'}</p></section>`}${side}`;
-  }
-  return `<div class="student-shell">${headline(v, false)}<div class="row mb"><div>Xin chào, <span class="student-name">${esc(name)}</span> 👋</div><span class="chip ${room ? 'good' : ''}">${room ? 'Đang học · buổi ' + room.n : 'Chờ buổi học'}</span></div>${isPreview() ? '<div class="banner info">Cô đang xem thử như học sinh. Câu trả lời ở đây không tính vào báo cáo lớp.</div>' : ''}<div class="stack">${body}</div><p class="footer">Lớp Mình Live · Giao diện gọn cho cửa sổ laptop và điện thoại</p></div>`;
+  if (past.length < 2) return '';
+  return `<details class="soft-details"><summary>Các buổi con đã học (${past.length})</summary>${past.map((r) => { const s = studentStats(r, r.members[uid]); return `<div class="name-row"><span>Buổi ${r.n} · ${shortDate(r.createdAt)}</span><span class="muted">${hasQuestions() && s.eligible ? `đúng ${s.correct}/${s.eligible} câu` : 'đã vào lớp'}</span></div>`; }).join('')}</details>`;
 }
 function view() {
   if (state.role === 'setup') return setupView();
   if (state.role === 'home') return MODE === 'teacher' ? teacherHome() : studentHome();
   const v = state.view;
-  if (!v) return '<p class="muted">Đang tải dữ liệu lớp…</p>';
+  if (!v) return '<p class="muted center">Đang tải lớp…</p>';
   return state.role === 'teacher' ? teacher(v) : student(v);
 }
 
@@ -905,16 +1012,18 @@ function doRender() {
   frame = 0;
   const root = document.getElementById('app');
   const html = view();
-  // Học sinh để tab này ở nền: tiêu đề tab báo khi cô mở câu mới mà con chưa trả lời.
+  // Học sinh để tab này ở nền: tiêu đề tab báo khi cô hỏi mà con chưa trả lời.
   const r = state.role === 'student' ? state.view?.room : null, a = r ? active(r) : null;
-  document.title = a && !a.responses[state.conn.uid] ? '🔔 Cô đang chờ con trả lời · Lớp Mình Live' : BASE_TITLE;
+  document.title = a && !a.responses[state.conn.uid] ? '🔔 Cô đang hỏi · Lớp Mình Live' : BASE_TITLE;
   if (html === lastHtml) return;
   const ae = document.activeElement;
   let keep = null;
   if (ae && root.contains(ae) && ae.dataset?.field) keep = { field: ae.dataset.field, mid: ae.dataset.mid || '', value: ae.value, s: ae.selectionStart, e: ae.selectionEnd };
+  const openDetails = [...root.querySelectorAll('details[open] > summary')].map((s) => s.textContent);
   const y = window.scrollY;
   root.innerHTML = html; lastHtml = html;
-  // Công thức toán trong $…$ (KaTeX tải kèm trang; nếu chưa tải xong thì vẽ lại sau).
+  for (const s of root.querySelectorAll('details > summary')) if (openDetails.includes(s.textContent)) s.parentElement.open = true;
+  // Công thức toán trong $…$ (KaTeX tải kèm trang; nếu chưa tải xong thì vẽ khi tải xong).
   const math = () => window.renderMathInElement?.(root, { delimiters: [{ left: '$$', right: '$$', display: true }, { left: '$', right: '$', display: false }, { left: '\\(', right: '\\)', display: false }], throwOnError: false, ignoredTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code', 'input'] });
   if (window.renderMathInElement) math(); else window.addEventListener('load', math, { once: true });
   if (keep) {
@@ -931,6 +1040,18 @@ async function copyText(txt, okMsg) {
   const t = document.createElement('textarea'); t.value = txt; document.body.appendChild(t); t.select();
   const ok = document.execCommand('copy'); t.remove(); toast(ok ? okMsg : 'Không sao chép được'); return ok;
 }
+function sendZalo(id) {
+  const room = getRoom(), m = room?.members[id]; if (!m) return;
+  copyText(parentMessage(room, m), 'Đã sao chép tin nhắn cho phụ huynh ' + m.name + '. Dán vào Zalo nhé!').then((ok) => { if (ok) markDelivered(m.id); });
+}
+function sendMail(id) {
+  const room = getRoom(), m = room?.members[id]; if (!m) return;
+  const email = norm(fieldValue('parentEmail', m.id, observation(m).parentEmail));
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { state.parentPreviewId = m.id; render(); toast('Nhập email phụ huynh trước nhé'); return; }
+  const subject = `Báo cáo buổi ${room.n} lớp ${room.name} - ${m.name}`;
+  window.location.href = 'mailto:' + encodeURIComponent(email) + '?subject=' + encodeURIComponent(subject) + '&body=' + encodeURIComponent(parentMessage(room, m));
+  markDelivered(m.id);
+}
 function actOnClick(el, ev) {
   const action = el.dataset.action; const room = getRoom();
   if (el.tagName === 'A') ev?.preventDefault();
@@ -938,26 +1059,31 @@ function actOnClick(el, ev) {
     case 'newClass': openSetup(false); break;
     case 'customize': openSetup(true); break;
     case 'cancelSetup': if (state.setup?.editing) { state.setup = null; render(); } else { state.setup = null; state.role = 'home'; render(); } break;
-    case 'preset': { const p = PRESETS.find((x) => x.id === el.dataset.id); for (const id of ALL_FEATURES) state.setup.features[id] = p.on.includes(id); render(); break; }
     case 'toggleFeat': state.setup.features[el.dataset.id] = !state.setup.features[el.dataset.id]; render(); break;
     case 'toggleKind': state.setup.features.kinds[el.dataset.id] = !state.setup.features.kinds[el.dataset.id]; render(); break;
     case 'saveSetup': saveSetup(); break;
     case 'resume': { const c = state.myClasses.find((r) => r.code === el.dataset.code); resumeTeacher(el.dataset.code, c?.key); break; }
     case 'claim': resumeTeacher(norm(state.claimCode).replace(/\D/g, ''), norm(state.claimKey).toUpperCase()); break;
     case 'join': joinStudent(state.joinCode, state.joinName); break;
+    case 'showCode': state.showCodeInput = true; render(); break;
     case 'preview': if (state.view?.liveSid) joinStudent(state.code, 'Cô xem thử', true); break;
     case 'teacher': if (conns.teacher?.uid) openTeacher(conns.teacher, state.code); break;
     case 'home': goHome(); break;
+    case 'tab': state.tab = el.dataset.id; state.parentPreviewId = null; state.pick = null; if (el.dataset.id === 'class') state.viewSid = state.view?.liveSid || state.viewSid; refresh(); window.scrollTo(0, 0); break;
     case 'startSession': startSession(); break;
-    case 'viewSession': state.viewSid = el.dataset.sid; state.parentPreviewId = null; refresh(); break;
+    case 'viewSession': state.viewSid = el.dataset.sid; state.parentPreviewId = null; state.justEnded = null; refresh(); break;
+    case 'dismiss': state.dismissed[el.dataset.id] = true; render(); break;
     case 'open': openActivity(el.dataset.kind); break;
     case 'checkin': openActivity('checkin', el.dataset.phase); break;
+    case 'tapMode': state.tapMode = el.dataset.id; render(); break;
+    case 'tapStudent': tapStudent(el.dataset.mid); break;
+    case 'pick': state.pick = el.dataset.mid || null; render(); break;
     case 'bankNew': openBankEditor(null); break;
     case 'bankEdit': openBankEditor(el.dataset.id); break;
     case 'bankCancel': state.bankEdit = null; render(); break;
     case 'bankSave': saveBankQuestion(); break;
     case 'bankDelete': deleteBankQuestion(el.dataset.id); break;
-    case 'bankOpen': openBankQuestion(el.dataset.id); break;
+    case 'bankOpen': state.tab = 'class'; openBankQuestion(el.dataset.id); window.scrollTo(0, 0); break;
     case 'bankKind': { const e = state.bankEdit; if (e.kind !== el.dataset.id) { e.kind = el.dataset.id; e.key = e.kind === 'tf4' ? {} : ''; } render(); break; }
     case 'bankKey': state.bankEdit.key = el.dataset.val; render(); break;
     case 'bankKeyPart': { const e = state.bankEdit; e.key = { ...(typeof e.key === 'object' && e.key ? e.key : {}), [el.dataset.part]: el.dataset.val }; render(); break; }
@@ -971,7 +1097,7 @@ function actOnClick(el, ev) {
     case 'number': {
       const a = active(room); if (!a) return;
       const v = norm(state.studentDrafts[a.id] ?? '');
-      if (parseNumeric(v) === null) { toast('Vui lòng nhập một số hợp lệ'); return; }
+      if (parseNumeric(v) === null) { toast('Con nhập một số nhé, vd 0,5 hoặc 1/2'); return; }
       storeAnswer(v); break;
     }
     case 'key': { const a = active(room); if (!a) return; state.keys[keyId(room, a)] = el.dataset.val; saveDraftKey(room, a); render(); break; }
@@ -980,7 +1106,7 @@ function actOnClick(el, ev) {
     case 'skip': closeActivity(true); break;
     case 'end': endClass(); break;
     case 'copy': copyText(state.code, 'Đã sao chép mã lớp'); break;
-    case 'copyLink': copyText(linkStudent(), 'Đã sao chép link lớp'); break;
+    case 'copyLink': copyText(linkStudent(), 'Đã sao chép link lớp. Dán vào nhóm Zalo nhé!'); break;
     case 'copyKey': copyText(state.view?.adminKey || '', 'Đã sao chép mã quản lý'); break;
     case 'csv': exportCsv(); break;
     case 'csvCourse': exportCourseCsv(); break;
@@ -988,20 +1114,10 @@ function actOnClick(el, ev) {
     case 'addRoster': addRoster(); break;
     case 'observe': setObservation(el.dataset.mid, el.dataset.field, el.dataset.value); break;
     case 'parentPreview': state.parentPreviewId = el.dataset.mid; render(); window.scrollTo(0, 0); break;
-    case 'backTeacher': state.parentPreviewId = null; render(); window.scrollTo(0, 0); break;
+    case 'backTeacher': state.parentPreviewId = null; render(); break;
     case 'printReport': window.print(); break;
-    case 'copyParent': {
-      const m = room?.members[state.parentPreviewId]; if (!m) return;
-      copyText(parentMessage(room, m), 'Đã sao chép tin nhắn cá nhân').then((ok) => { if (ok) markDelivered(m.id); }); break;
-    }
-    case 'emailParent': {
-      const m = room?.members[state.parentPreviewId]; if (!m) return;
-      const email = norm(fieldValue('parentEmail', m.id, observation(m).parentEmail));
-      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { toast('Hãy nhập email PH hợp lệ'); return; }
-      const subject = `Báo cáo buổi ${room.n} lớp ${room.name} - ${formatDate(room.createdAt)} - ${m.name}`;
-      window.location.href = 'mailto:' + encodeURIComponent(email) + '?subject=' + encodeURIComponent(subject) + '&body=' + encodeURIComponent(parentMessage(room, m));
-      markDelivered(m.id); toast('Đã mở ứng dụng email để cô kiểm tra và gửi'); break;
-    }
+    case 'zalo': sendZalo(el.dataset.mid); break;
+    case 'mail': sendMail(el.dataset.mid); break;
   }
 }
 document.addEventListener('click', (e) => { const btn = e.target.closest('[data-action]'); if (btn && !btn.disabled) actOnClick(btn, e); });
@@ -1036,7 +1152,7 @@ document.addEventListener('change', (e) => {
   const f = e.target.dataset.field;
   if (['obsNote', 'note', 'parentName', 'parentEmail'].includes(f)) storeObservationField(e.target.dataset.mid, f === 'obsNote' ? 'note' : f, e.target.value, true);
 });
-document.addEventListener('toggle', (e) => { if (e.target.classList?.contains('roster-add')) state.rosterOpen = e.target.open; }, true);
+document.addEventListener('toggle', (e) => { if (e.target.querySelector?.('#rosterDraft')) state.rosterOpen = e.target.open; }, true);
 document.addEventListener('keydown', (e) => {
   if (e.key !== 'Enter') return;
   if (state.role === 'home' && (e.target.id === 'joinName' || e.target.id === 'joinCode')) joinStudent(state.joinCode, state.joinName);
@@ -1057,7 +1173,13 @@ document.addEventListener('keydown', (e) => {
   const saved = loadJSON(studentStore, 'lopminh:studentClass', null);
   state.joinCode = urlCode || saved?.code || '';
   state.joinName = saved?.name || '';
-  render();
   // Tuần sau mở lại link cũ: vào thẳng lớp với tên đã nhập lần trước.
-  if (saved?.code && saved.name && (!urlCode || urlCode === saved.code)) await joinStudent(saved.code, saved.name);
+  if (saved?.code && saved.name && (!urlCode || urlCode === saved.code)) { await joinStudent(saved.code, saved.name); return; }
+  // Mở link lần đầu: hiện tên lớp để con biết mình vào đúng lớp.
+  if (urlCode) {
+    try { const c = await conn('student'); state.joinClassName = (await get(ref(c.db, P(urlCode, 'meta/name')))).val() || ''; } catch { /* không sao, vẫn nhập tay được */ }
+    if (!state.joinClassName) state.showCodeInput = true;
+  }
+  render();
+  setTimeout(() => document.getElementById('joinName')?.focus(), 50);
 })();
