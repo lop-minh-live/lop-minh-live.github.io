@@ -1,0 +1,13 @@
+/* Bổ sung cho bản online (Firebase). styles.css giữ nguyên từ MVP v2. */
+.pill.offline{border-color:#f1c9c9;background:#fdf0f0;color:#a03a3a}
+.pill.offline .dot{background:#d24c4c}
+.online-dot{display:inline-block;width:8px;height:8px;border-radius:99px;background:#c7d2d8;margin-right:6px;vertical-align:middle}
+.online-dot.on{background:#26a56b}
+.share-link{font-size:12px;overflow-wrap:anywhere;background:#f4f7f8;border-radius:8px;padding:7px 9px;color:#33505f}
+.qr-box{display:flex;justify-content:center}
+.qr-box img{width:150px;height:150px;image-rendering:pixelated}
+.waiting-names{display:flex;flex-wrap:wrap;gap:5px;margin-top:6px}
+.waiting-names span{background:#fff5e5;color:#8b642c;border-radius:20px;padding:3px 9px;font-size:12px;font-weight:600}
+.my-rooms{display:flex;flex-direction:column;gap:8px}
+.my-rooms .name-row{align-items:center}
+.delivery{font-size:11px;font-weight:700;color:#126b52}
