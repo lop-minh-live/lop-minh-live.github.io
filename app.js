@@ -169,7 +169,7 @@ function rosterUpdates(text, existing, base) {
 
 // ---------- Ghép dữ liệu Firebase thành "room" của một buổi học ----------
 function sessionList(d) {
-  return Object.entries(d?.sessions || {}).map(([id, s]) => ({ id, ...s })).sort((a, b) => (a.startedAt || 0) - (b.startedAt || 0) || (a.n || 0) - (b.n || 0));
+  return Object.entries(d?.sessions || {}).map(([id, s]) => ({ id, ...s })).sort((a, b) => (a.n || 0) - (b.n || 0) || (a.startedAt || 0) - (b.startedAt || 0));
 }
 function activitiesFrom(obj) {
   return Object.entries(obj || {}).map(([id, a]) => ({ id, ...a, options: a.options || null, responses: {} })).sort((x, y) => (x.seq || 0) - (y.seq || 0));
@@ -212,7 +212,7 @@ function buildSessionRoom(d, sid) {
   }
   const sorted = Object.fromEntries(Object.values(persons).sort((x, y) => (x.order - y.order) || x.name.localeCompare(y.name, 'vi')).map((p) => [p.id, p]));
   return {
-    code: state.code, sid, n: session.n, name: d.meta?.name || '', createdAt: session.startedAt, status: isLive ? 'live' : 'ended',
+    code: state.code, sid, n: session.n, name: d.meta?.name || '', createdAt: session.startedAt, status: isLive ? 'live' : session.startedAt ? 'ended' : 'planned',
     endedAt: session.endedAt, activeId: isLive ? (d.state?.activeId || null) : null, members: sorted, activities,
   };
 }
@@ -224,18 +224,24 @@ function buildTeacherView() {
   syncRoster(d);
   const sessions = sessionList(d);
   const liveSid = d.state?.sessionId || null;
-  // Tab Giờ học luôn là buổi đang diễn ra.
-  if (!state.viewSid || !d.sessions?.[state.viewSid] || (state.tab === 'class' && liveSid)) state.viewSid = liveSid || sessions[sessions.length - 1]?.id || null;
+  // viewSid: buổi cô đang mở (null = trang lớp). Mới vào lớp mà đang có buổi dạy thì mở thẳng buổi đó.
+  if (state.viewSid === undefined) { state.viewSid = liveSid; state.tab = liveSid ? 'class' : 'sessions'; }
+  if (state.viewSid && !d.sessions?.[state.viewSid]) { state.viewSid = null; state.tab = 'sessions'; }
   const room = state.viewSid ? buildSessionRoom(d, state.viewSid) : null;
-  const allRooms = sessions.map((s) => buildSessionRoom(d, s.id)).filter(Boolean);
-  // Lớp chưa có buổi nào: vẫn hiện danh sách lớp để cô chuẩn bị.
+  const allRooms = sessions.filter((s) => s.startedAt).map((s) => buildSessionRoom(d, s.id)).filter(Boolean);
+  // Trang lớp: danh sách học sinh không gắn với buổi nào.
   const rosterOnly = room || { code: state.code, sid: null, name: d.meta.name, status: 'none', activities: [], members: buildSessionRoom({ ...d, sessions: { x: { n: 0 } } }, 'x').members };
-  return { name: d.meta.name, code: state.code, adminKey: d.adminKey, features: featuresOf(d.meta), sessions, liveSid, room: rosterOnly, allRooms, bank: bankList(d) };
+  return { name: d.meta.name, code: state.code, adminKey: d.adminKey, features: featuresOf(d.meta), sessions, liveSid, room: rosterOnly, allRooms, bank: bankList(d), plan: room ? planOf(d, room.sid) : null };
+}
+// Phần soạn trước của một buổi: ghi chú và câu hỏi (chỉ giáo viên đọc được).
+function planOf(d, sid) {
+  const p = d.plans?.[sid] || {};
+  return { note: p.note || '', items: Object.entries(p.items || {}).map(([id, q]) => ({ id, ...q })).sort((a, b) => (a.order || 0) - (b.order || 0)) };
 }
 function buildStudentView() {
   if (!raw.meta || !raw.member) return null;
   const uid = state.conn.uid;
-  const sessions = sessionList({ sessions: raw.sessions });
+  const sessions = sessionList({ sessions: raw.sessions }).filter((s) => s.startedAt); // buổi cô mới soạn trước thì học sinh không thấy
   const liveSid = raw.state?.sessionId || null;
   const roomFor = (sid) => {
     const s = raw.sessions?.[sid]; if (!s) return null;
@@ -379,7 +385,7 @@ async function resumeTeacher(code, key) {
   } catch (e) { fail(e); }
 }
 function openTeacher(c, code) {
-  state.conn = c; state.code = code; state.role = 'teacher'; state.parentPreviewId = null; state.viewSid = null; state.setup = null; state.bankEdit = null;
+  state.conn = c; state.code = code; state.role = 'teacher'; state.parentPreviewId = null; state.viewSid = undefined; state.setup = null; state.bankEdit = null;
   saveJSON(sessionStorage, 'lopminh:teacherClass', code);
   listenTeacher(code); showNet();
 }
@@ -388,15 +394,38 @@ function clsRef(sub) { return ref(state.conn.db, P(state.code, sub)); }
 function write(updates, msg) { return update(clsRef(), updates).then(() => true, (e) => { fail(e, msg); return false; }); }
 
 function nextSessionNo(v) { return v.sessions.reduce((m, s) => Math.max(m, s.n || 0), 0) + 1; }
-function startSession() {
-  const v = state.view; if (!v || v.liveSid) return;
+// Thêm một buổi (chưa dạy) để soạn trước; học sinh chỉ thấy buổi khi cô bấm Bắt đầu.
+function addSession() {
+  const v = state.view; if (!v) return;
   const n = Math.round(Number(state.sessionNo ?? nextSessionNo(v)));
   if (!(n >= 1 && n <= 999)) { toast('Số buổi phải từ 1 đến 999'); return; }
   if (v.sessions.some((s) => s.n === n) && !confirm('Đã có buổi ' + n + '. Vẫn tạo thêm buổi ' + n + '?')) return;
   const sid = 's' + now().toString(36);
-  write({ ['sessions/' + sid]: { n, startedAt: serverTimestamp(), status: 'live' }, state: { sessionId: sid } }).then((ok) => {
-    if (ok) { state.viewSid = sid; state.tab = 'class'; state.justEnded = null; state.sessionNo = null; toast('Đã bắt đầu buổi ' + n); }
+  write({ ['sessions/' + sid]: { n, status: 'planned' } }).then((ok) => {
+    if (ok) { state.viewSid = sid; state.tab = 'plan'; state.sessionNo = null; state.bankEdit = null; refresh(); window.scrollTo(0, 0); }
   });
+}
+function startSession(sid) {
+  const v = state.view, s = v?.sessions.find((x) => x.id === sid); if (!s || s.startedAt) return;
+  if (v.liveSid) { toast('Kết thúc buổi đang dạy trước'); return; }
+  write({ ['sessions/' + sid + '/startedAt']: serverTimestamp(), ['sessions/' + sid + '/status']: 'live', state: { sessionId: sid } }).then((ok) => {
+    if (ok) { state.viewSid = sid; state.tab = 'class'; state.justEnded = null; state.bankEdit = null; toast('Đã bắt đầu buổi ' + s.n); refresh(); window.scrollTo(0, 0); }
+  });
+}
+function storePlanNote(sid, value, immediate) {
+  const k = 'plan:' + sid;
+  drafts[k] = value; clearTimeout(draftTimers[k]);
+  const save = () => {
+    const v = String(drafts[k] ?? '').slice(0, 5000);
+    write({ ['plans/' + sid + '/note']: v }).then((ok) => { if (ok && drafts[k] === v) delete drafts[k]; });
+  };
+  if (immediate) save(); else draftTimers[k] = setTimeout(save, 700);
+}
+// Chép một câu từ ngân hàng vào buổi này.
+function bankToPlan(qid) {
+  const q = state.view.bank.find((x) => x.id === qid), sid = getRoom()?.sid; if (!q || !sid) return;
+  const { id, topic, ...rest } = q;
+  write({ ['plans/' + sid + '/items/q' + now().toString(36) + Math.random().toString(36).slice(2, 5)]: { ...rest, order: now() } }).then((ok) => ok && toast('Đã thêm vào buổi'));
 }
 function renumberSession(sid) {
   const s = state.view?.sessions.find((x) => x.id === sid); if (!s) return;
@@ -407,10 +436,10 @@ function renumberSession(sid) {
 // Xoá một buổi: câu hỏi, điểm danh, nhận xét của buổi đó.
 function deleteSession(sid) {
   const v = state.view, s = v?.sessions.find((x) => x.id === sid); if (!s) return;
-  if (!confirm('Xoá buổi ' + s.n + ' (' + shortDate(s.startedAt) + ')? Không khôi phục được.')) return;
-  const u = { ['sessions/' + sid]: null, ['acts/' + sid]: null, ['obs/' + sid]: null, ['drafts/' + sid]: null };
+  if (!confirm('Xoá buổi ' + s.n + (s.startedAt ? ' (' + shortDate(s.startedAt) + ')' : '') + '? Không khôi phục được.')) return;
+  const u = { ['sessions/' + sid]: null, ['acts/' + sid]: null, ['obs/' + sid]: null, ['drafts/' + sid]: null, ['plans/' + sid]: null };
   if (v.liveSid === sid) u.state = null;
-  write(u).then((ok) => { if (ok) { state.viewSid = null; state.justEnded = null; toast('Đã xoá buổi ' + s.n); } });
+  write(u).then((ok) => { if (ok) { state.viewSid = null; state.tab = 'sessions'; state.justEnded = null; toast('Đã xoá buổi ' + s.n); refresh(); } });
 }
 // Xoá một câu đã hỏi trong buổi (không tính vào kết quả nữa).
 function cancelActivity() {
@@ -587,12 +616,16 @@ function markDelivered(id) { const room = getRoom(); if (room?.sid) write({ ['ob
 // ---------- Bộ câu hỏi soạn sẵn ----------
 const blankChoices = () => ({ A: '', B: '', C: '', D: '' });
 const blankStatements = () => ({ a: '', b: '', c: '', d: '' });
-function openBankEditor(qid) {
-  const q = qid ? state.view.bank.find((x) => x.id === qid) : null;
-  const lastTopic = state.view.bank[state.view.bank.length - 1]?.topic || '';
+// target: 'bank' (ngân hàng chung của lớp) hoặc mã buổi (câu soạn cho buổi đó).
+const editList = (target) => (target === 'bank' ? state.view.bank : state.view.plan?.items || []);
+const editPath = (target, id) => (target === 'bank' ? 'bank/' : 'plans/' + target + '/items/') + id;
+function openBankEditor(qid, target = 'bank') {
+  const list = editList(target);
+  const q = qid ? list.find((x) => x.id === qid) : null;
+  const lastTopic = list[list.length - 1]?.topic || '';
   state.bankEdit = q
-    ? { id: q.id, kind: q.kind, topic: q.topic || '', text: q.text || '', options: { ...blankChoices(), ...(q.options || {}) }, statements: { ...blankStatements(), ...(q.statements || {}) }, key: q.kind === 'tf4' ? { ...(q.key || {}) } : q.key ?? '', order: q.order }
-    : { id: null, kind: 'abcd', topic: lastTopic, text: '', options: blankChoices(), statements: blankStatements(), key: '', order: null };
+    ? { target, id: q.id, kind: q.kind, topic: q.topic || '', text: q.text || '', options: { ...blankChoices(), ...(q.options || {}) }, statements: { ...blankStatements(), ...(q.statements || {}) }, key: q.kind === 'tf4' ? { ...(q.key || {}) } : q.key ?? '', order: q.order }
+    : { target, id: null, kind: 'abcd', topic: target === 'bank' ? lastTopic : '', text: '', options: blankChoices(), statements: blankStatements(), key: '', order: null };
   render();
   setTimeout(() => document.getElementById('bankText')?.focus(), 30);
 }
@@ -606,14 +639,15 @@ function saveBankQuestion() {
   if (e.kind === 'abcd') q.options = Object.fromEntries(Object.entries(e.options).map(([k, v]) => [k, String(v || '').trim().slice(0, 300)]));
   if (e.kind === 'tf4') q.statements = Object.fromEntries(Object.entries(e.statements).map(([k, v]) => [k, String(v || '').trim().slice(0, 300)]));
   const id = e.id || 'q' + now().toString(36) + Math.random().toString(36).slice(2, 5);
-  write({ ['bank/' + id]: q }).then((ok) => { if (ok) { state.bankEdit = null; toast(e.id ? 'Đã sửa câu hỏi' : 'Đã thêm câu hỏi'); render(); } });
+  if (e.target !== 'bank') delete q.topic;
+  write({ [editPath(e.target, id)]: q }).then((ok) => { if (ok) { state.bankEdit = null; toast(e.id ? 'Đã sửa câu hỏi' : 'Đã thêm câu hỏi'); render(); } });
 }
-function deleteBankQuestion(qid) {
+function deleteBankQuestion(qid, target = 'bank') {
   if (!confirm('Xoá câu hỏi này?')) return;
-  write({ ['bank/' + qid]: null }).then((ok) => ok && toast('Đã xoá câu hỏi'));
+  write({ [editPath(target, qid)]: null }).then((ok) => ok && toast('Đã xoá câu hỏi'));
 }
 function openBankQuestion(qid) {
-  const q = state.view.bank.find((x) => x.id === qid); if (!q) return;
+  const q = [...(state.view.plan?.items || []), ...state.view.bank].find((x) => x.id === qid); if (!q) return;
   openActivity(q.kind, null, q);
 }
 
@@ -810,23 +844,57 @@ function teacher(v) {
   const room = v.room;
   const selected = state.parentPreviewId && room.members[state.parentPreviewId];
   if (selected && room.sid && feat('parent')) return parentReportPage(room, selected);
-  const live = !!v.liveSid;
   const liveN = v.sessions.find((s) => s.id === v.liveSid)?.n;
-  const tabs = [['class', 'Giờ học'], ['students', 'Học sinh'], feat('bank') && ['questions', 'Câu hỏi'], ['report', 'Báo cáo'], ['settings', 'Cài đặt']].filter(Boolean);
-  if (!tabs.some(([k]) => k === state.tab)) state.tab = 'class';
-  const body = { class: tabClass, students: tabStudents, questions: tabQuestions, report: tabReport, settings: tabSettings }[state.tab](v);
+  const nav = (tabs) => (tabs.length > 1 ? `<nav class="tabs">${tabs.map(([k, l]) => `<button class="tab ${state.tab === k ? 'on' : ''}" data-action="tab" data-id="${k}">${l}</button>`).join('')}</nav>` : '');
+  // Trang lớp: các buổi, học sinh, ngân hàng câu hỏi, cài đặt.
+  if (!room.sid) {
+    const tabs = [['sessions', 'Buổi học'], ['students', 'Học sinh'], feat('bank') && ['questions', 'Câu hỏi'], ['settings', 'Cài đặt']].filter(Boolean);
+    if (!tabs.some(([k]) => k === state.tab)) state.tab = 'sessions';
+    const body = { sessions: tabSessions, students: tabStudents, questions: tabQuestions, settings: tabSettings }[state.tab](v);
+    return `<div class="cls">
+<div class="cls-head"><button class="link-btn" data-action="home">‹ Các lớp</button><h1>${esc(v.name)}</h1>${v.liveSid ? `<button class="link-btn" data-action="viewSession" data-sid="${v.liveSid}"><span class="live-dot"></span>Đang dạy buổi ${liveN} ›</button>` : ''}</div>
+${nav(tabs)}<div class="tab-body">${body}</div></div>`;
+  }
+  // Trang một buổi.
+  const st = room.status;
+  const tabs = st === 'live' ? [['class', 'Giờ học'], ['students', 'Học sinh'], ['plan', 'Soạn bài'], ['report', 'Báo cáo']]
+    : st === 'ended' ? [['report', 'Báo cáo'], ['students', 'Học sinh'], ['plan', 'Soạn bài']] : [['plan', 'Soạn bài']];
+  if (!tabs.some(([k]) => k === state.tab)) state.tab = tabs[0][0];
+  const body = { class: tabClass, students: tabStudents, plan: tabPlan, report: tabReport }[state.tab](v);
+  const sub = st === 'live' ? '<span class="live-dot"></span>Đang dạy' : st === 'ended' ? formatDate(room.createdAt) : 'Chưa dạy';
   return `<div class="cls">
-<div class="cls-head"><button class="link-btn" data-action="home">‹ Các lớp</button><h1>${esc(v.name)}</h1>${live ? `<div class="muted"><span class="live-dot"></span>Buổi ${liveN}</div>` : ''}</div>
-<nav class="tabs">${tabs.map(([k, l]) => `<button class="tab ${state.tab === k ? 'on' : ''}" data-action="tab" data-id="${k}">${l}</button>`).join('')}</nav>
-<div class="tab-body">${body}</div></div>`;
+<div class="cls-head"><button class="link-btn" data-action="backClass">‹ ${esc(v.name)}</button><h1>Buổi ${room.n}</h1><div class="muted">${sub}</div></div>
+${nav(tabs)}<div class="tab-body">${body}</div></div>`;
+}
+// --- Trang lớp: danh sách buổi ---
+function tabSessions(v) {
+  const n = state.sessionNo ?? nextSessionNo(v);
+  const add = `<section class="plain"><div class="start-row" style="justify-content:flex-start;margin:0"><label for="sessionNo">Buổi</label><input id="sessionNo" data-field="sessionNo" class="input big no-input" type="number" min="1" max="999" value="${esc(n)}"><button class="btn primary" data-action="addSession">+ Thêm buổi</button></div></section>`;
+  const rows = [...v.sessions].reverse().map((s) => {
+    const live = s.id === v.liveSid, nq = Object.keys(raw.cls?.plans?.[s.id]?.items || {}).length;
+    const sub = live ? '<span class="live-dot"></span>Đang dạy' : s.startedAt ? formatDate(s.startedAt) : 'Chưa dạy' + (nq ? ' · ' + nq + ' câu soạn sẵn' : '');
+    return `<button class="class-card" data-action="viewSession" data-sid="${s.id}"><span class="class-icon" style="font-size:19px;font-weight:800">${s.n}</span><span><b>Buổi ${s.n}</b><small class="muted">${sub}</small></span><span class="go">›</span></button>`;
+  }).join('');
+  return `${add}<div class="class-list" style="margin-top:4px">${rows}</div>${courseReport(v)}`;
+}
+// --- Soạn bài cho một buổi: ghi chú và câu hỏi ---
+function tabPlan(v) {
+  const room = v.room, sid = room.sid, plan = v.plan;
+  const e = state.bankEdit?.target === sid ? state.bankEdit : null;
+  const canOpen = room.status === 'live' && !active(room);
+  const used = new Set(room.activities.map((a) => a.fromBank).filter(Boolean));
+  const liveN = v.sessions.find((s) => s.id === v.liveSid)?.n;
+  const start = room.status === 'planned' ? `<section class="hero-card">${v.liveSid ? `<div class="muted">Đang dạy buổi ${liveN}. Kết thúc buổi đó trước.</div>` : `<button class="btn primary big-btn" data-action="startSession" data-sid="${sid}">Bắt đầu buổi ${room.n}</button>`}<div class="actions mt" style="justify-content:center"><button class="btn sm" data-action="renumber" data-sid="${sid}">Đổi số buổi</button><button class="btn sm danger" data-action="deleteSession" data-sid="${sid}">Xoá buổi</button></div></section>` : '';
+  const k = 'plan:' + sid, note = k in drafts ? drafts[k] : plan.note;
+  const row = (q, i) => `<div class="bank-row ${used.has(q.id) ? 'used' : ''}"><div class="bank-main"><div class="bank-text"><b>${i + 1}.</b> ${rich(q.text)}</div><div class="tiny muted">${esc(labelKind[q.kind])} · Đáp án ${esc(keyText(q.kind, q.key))}${used.has(q.id) ? ' · đã hỏi' : ''}</div></div><div class="actions">${canOpen && !used.has(q.id) ? `<button class="btn sm primary" data-action="bankOpen" data-id="${q.id}">Mở</button>` : ''}<button class="btn sm" data-action="planEdit" data-id="${q.id}">Sửa</button><button class="icon-btn" data-action="planDelete" data-id="${q.id}" title="Xoá">🗑</button></div></div>`;
+  const fromBank = feat('bank') && v.bank.length ? `<details class="soft-details"><summary>Lấy từ ngân hàng câu hỏi (${v.bank.length})</summary>${v.bank.map((q) => `<div class="bank-row"><div class="bank-main"><div class="bank-text">${rich(q.text)}</div><div class="tiny muted">${esc(q.topic || labelKind[q.kind])}</div></div><div class="actions"><button class="btn sm" data-action="bankToPlan" data-id="${q.id}">Thêm</button></div></div>`).join('')}</details>` : '';
+  return `${start}<section class="plain"><h2>Ghi chú</h2><textarea class="input" rows="4" data-field="planNote" data-mid="${sid}" maxlength="5000" placeholder="Giáo án, việc cần làm">${esc(note)}</textarea></section>
+<section class="plain"><div class="row wrap"><h2 style="margin:0">Câu hỏi (${plan.items.length})</h2>${e ? '' : `<button class="btn primary" data-action="planNew">+ Thêm câu</button>`}</div>${e ? bankEditor(e) : ''}<div class="bank-list">${plan.items.map(row).join('')}</div>${fromBank}</section>`;
 }
 // --- Giờ học ---
 function tabClass(v) {
   const room = v.room;
-  if (!v.liveSid) {
-    const n = state.sessionNo ?? nextSessionNo(v);
-    return `<section class="hero-card"><div class="start-row"><label for="sessionNo">Buổi</label><input id="sessionNo" data-field="sessionNo" class="input big no-input" type="number" min="1" max="999" value="${esc(n)}"></div><button class="btn primary big-btn" data-action="startSession">Bắt đầu</button></section>${inviteStrip()}`;
-  }
+  if (room.status !== 'live') return '';
   const inClass = Object.values(room.members).filter((m) => m.joinedAt != null);
   const online = inClass.filter((m) => m.online).length;
   const a = active(room);
@@ -834,7 +902,8 @@ function tabClass(v) {
   if (a) return strip + questionFocus(room, a);
   const lc = lastClosed(room);
   const result = lc && !state.dismissed[room.sid + '/' + lc.id] && lc.status !== 'skipped' ? resultCard(room, lc) : '';
-  return strip + result + nextActions(v, room);
+  const note = v.plan?.note ? `<details class="soft-details plain"><summary>Ghi chú buổi này</summary><div class="rich">${esc(v.plan.note).replace(/\n/g, '<br>')}</div></details>` : '';
+  return strip + result + nextActions(v, room) + note;
 }
 function inviteStrip() {
   return `<section class="invite"><div class="share-link">${esc(linkStudent())}</div><button class="btn primary" data-action="copyLink">Sao chép link</button></section>`;
@@ -844,10 +913,15 @@ function nextActions(v, room) {
   const nextQ = feat('bank') ? v.bank.find((q) => !used.has(q.id)) : null;
   const kinds = quickTypes.filter(([k]) => v.features.kinds[k]);
   const blocks = [];
-  if (feat('bank')) {
+  const items = v.plan?.items || [], nextP = items.find((q) => !used.has(q.id));
+  if (items.length) {
+    blocks.push(nextP
+      ? `<section class="next-card"><div class="eyebrow">Câu tiếp theo · ${items.indexOf(nextP) + 1}/${items.length}</div><div class="q-text">${rich(nextP.text)}</div><div class="actions"><button class="btn primary big-btn" data-action="bankOpen" data-id="${nextP.id}">Mở câu này</button><button class="btn" data-action="tab" data-id="plan">Chọn câu khác</button></div></section>`
+      : `<section class="next-card muted-card"><span>Đã hỏi hết câu soạn sẵn.</span> <button class="link-btn" data-action="tab" data-id="plan">Xem</button></section>`);
+  } else if (feat('bank')) {
     blocks.push(nextQ
-      ? `<section class="next-card"><div class="eyebrow">Câu tiếp theo</div><div class="q-text">${rich(nextQ.text)}</div><div class="actions"><button class="btn primary big-btn" data-action="bankOpen" data-id="${nextQ.id}">Mở câu này</button><button class="btn" data-action="tab" data-id="questions">Chọn câu khác</button></div></section>`
-      : `<section class="next-card muted-card"><span>${v.bank.length ? 'Đã hỏi hết câu soạn sẵn.' : 'Chưa có câu soạn sẵn.'}</span> <button class="link-btn" data-action="tab" data-id="questions">${v.bank.length ? 'Xem' : 'Soạn câu'}</button></section>`);
+      ? `<section class="next-card"><div class="eyebrow">Câu tiếp theo</div><div class="q-text">${rich(nextQ.text)}</div><div class="actions"><button class="btn primary big-btn" data-action="bankOpen" data-id="${nextQ.id}">Mở câu này</button></div></section>`
+      : `<section class="next-card muted-card"><span>Chưa có câu soạn sẵn.</span> <button class="link-btn" data-action="tab" data-id="plan">Soạn câu</button></section>`);
   }
   if (feat('quick') && kinds.length) blocks.push(`<section class="next-card"><div class="eyebrow">Hỏi nhanh</div><div class="quick-grid">${kinds.map(([k, t]) => `<button class="quick-btn" data-action="open" data-kind="${k}">${t}</button>`).join('')}</div></section>`);
   if (feat('checkin')) blocks.push(`<section class="next-card"><div class="eyebrow">Check-in</div><div class="quick-grid">${[['start', 'Đầu giờ'], ['middle', 'Giữa giờ'], ['end', 'Cuối giờ']].map(([k, t]) => `<button class="quick-btn soft" data-action="checkin" data-phase="${k}">${t}</button>`).join('')}</div></section>`);
@@ -858,7 +932,7 @@ function questionFocus(room, a) {
   const done = inClass.filter((m) => a.responses[m.id]).length, total = inClass.length;
   const waiting = inClass.filter((m) => m.online && !a.responses[m.id]);
   const title = a.kind === 'checkin' ? a.title : 'Câu ' + numberOf(room, a);
-  const choices = a.kind === 'abcd' && a.choices ? `<div class="q-list">${['A', 'B', 'C', 'D'].map((k) => `<div><b>${k}.</b> ${rich(a.choices[k])}</div>`).join('')}</div>` : '';
+  const choices = a.kind === 'abcd' && a.choices ? `<div class="q-list">${['A', 'B', 'C', 'D'].filter((k) => norm(a.choices[k])).map((k) => `<div><b>${k}.</b> ${rich(a.choices[k])}</div>`).join('')}</div>` : '';
   return `<section class="focus">
 <div class="focus-top"><button class="btn sm" data-action="cancelAct">← Quay lại</button><div class="eyebrow">${esc(title)}</div></div>
 ${a.fromBank ? questionBody(a) + choices : a.kind === 'checkin' ? `<div class="q-text">${esc(a.prompt)}</div>` : ''}
@@ -917,7 +991,7 @@ function tabStudents(v) {
   const counts = [feat('attendance') && `<span><b>${present}</b> có mặt</span>`, feat('attendance') && absent && `<span><b>${absent}</b> vắng</span>`, feat('camera') && `<span><b>${cam}</b> bật cam</span>`, !feat('attendance') && `<span><b>${all.filter((m) => m.joinedAt != null).length}</b>/${all.length} vào lớp</span>`].filter(Boolean).join('');
   const q = normalizeName(state.search || '');
   const shown = q ? all.filter((m) => normalizeName(m.name).includes(q)) : all;
-  return `<section class="plain">${room.status !== 'live' ? `<div class="mb">${sessionPicker(v)}</div>` : ''}<div class="counts">${counts}</div>
+  return `<section class="plain"><div class="counts">${counts}</div>
 ${modes.length > 1 ? `<div class="tap-modes">${modes.map(([k, l]) => `<button class="seg ${state.tapMode === k ? 'on' : ''}" data-action="tapMode" data-id="${k}">${l}</button>`).join('')}</div>` : ''}
 ${all.length > 12 ? `<input class="input" data-field="search" value="${esc(state.search || '')}" placeholder="Tìm tên">` : ''}
 ${pick}
@@ -941,15 +1015,10 @@ ${s && feat('called') ? `<div class="detail-row"><span>Khi gọi</span>${group('
 ${s && feat('note') ? `<textarea class="input" rows="2" data-field="obsNote" data-mid="${esc(m.id)}" maxlength="500" placeholder="Nhận xét">${esc(fieldValue('note', m.id, o.note))}</textarea>` : ''}
 <div class="actions">${s && feat('parent') ? `<button class="btn sm" data-action="parentPreview" data-mid="${esc(m.id)}">Báo cáo phụ huynh</button>` : ''}<button class="btn sm danger" data-action="deleteStudent" data-mid="${esc(m.id)}">Xoá khỏi lớp</button></div></div>`;
 }
-function sessionPicker(v) {
-  if (!v.sessions.length) return '';
-  return `<span class="session-bar">${v.sessions.map((s) => `<button class="session-chip ${s.id === v.room.sid ? 'on' : ''}" data-action="viewSession" data-sid="${s.id}">${s.id === v.liveSid ? '● ' : ''}Buổi ${s.n} · ${shortDate(s.startedAt)}</button>`).join('')}</span>`;
-}
-// --- Câu hỏi soạn sẵn ---
+// --- Ngân hàng câu hỏi chung của lớp (dùng lại cho nhiều buổi) ---
 function tabQuestions(v) {
-  const room = v.room, canOpen = room.status === 'live' && room.sid === v.liveSid && !active(room);
-  const used = new Set(room.status === 'live' ? room.activities.map((a) => a.fromBank).filter(Boolean) : []);
-  const e = state.bankEdit;
+  const canOpen = false, used = new Set();
+  const e = state.bankEdit?.target === 'bank' ? state.bankEdit : null;
   const topics = [...new Set(v.bank.map((q) => q.topic || ''))];
   const list = topics.map((t) => `${t ? `<div class="bank-topic">${esc(t)}</div>` : ''}${v.bank.filter((q) => (q.topic || '') === t).map((q) => `<div class="bank-row ${used.has(q.id) ? 'used' : ''}"><div class="bank-main"><div class="bank-text">${rich(q.text)}</div><div class="tiny muted">${esc(labelKind[q.kind])} · Đáp án ${esc(keyText(q.kind, q.key))}${used.has(q.id) ? ' · đã hỏi' : ''}</div></div><div class="actions">${canOpen ? `<button class="btn sm primary" data-action="bankOpen" data-id="${q.id}">Mở</button>` : ''}<button class="btn sm" data-action="bankEdit" data-id="${q.id}">Sửa</button><button class="icon-btn" data-action="bankDelete" data-id="${q.id}" title="Xoá">🗑</button></div></div>`).join('')}`).join('');
   return `<section class="plain"><div class="row wrap"><h2 style="margin:0">Câu hỏi (${v.bank.length})</h2>${e ? '' : `<button class="btn primary" data-action="bankNew">+ Thêm câu</button>`}</div>${e ? bankEditor(e) : ''}<div class="bank-list">${list}</div></section>`;
@@ -979,11 +1048,10 @@ function tabReport(v) {
   const acts = room.activities;
   const actList = acts.length ? `<details class="soft-details plain"><summary>Các câu đã hỏi (${acts.length})</summary>${acts.map((a) => { const res = Object.values(a.responses); const right = res.filter((r) => graded(a, r)).length; const label = a.kind === 'checkin' ? a.title : 'Câu ' + numberOf(room, a) + (a.fromBank ? ': ' : ' · ' + labelKind[a.kind]); const info = a.status === 'graded' ? `${right}/${res.length} đúng · đáp án ${esc(keyText(a.kind, a.key))}` : a.status === 'skipped' ? 'đã bỏ' : a.status === 'open' ? 'đang mở' : `${res.length} trả lời`; return `<div class="name-row"><span>${esc(label)}${a.fromBank ? rich(a.prompt) : ''}<div class="tiny muted">${info}</div></span><button class="icon-btn" data-action="deleteAct" data-sid="${room.sid}" data-id="${a.id}" title="Xoá câu">🗑</button></div>`; }).join('')}</details>` : '';
   const cols = sessionColumns();
-  return `<section class="plain${state.justEnded === room.sid ? ' done' : ''}"><div class="row wrap"><h2 style="margin:0">${state.justEnded === room.sid ? 'Đã kết thúc buổi ' + room.n : 'Buổi ' + room.n + ' · ' + formatDate(room.createdAt)}</h2><span class="actions"><button class="btn sm" data-action="renumber" data-sid="${room.sid}">Đổi số buổi</button><button class="icon-btn" data-action="deleteSession" data-sid="${room.sid}" title="Xoá buổi này">🗑</button></span></div>${v.sessions.length > 1 ? `<div class="mt">${sessionPicker(v)}</div>` : ''}<div class="counts mt">${summary}</div></section>
+  return `<section class="plain${state.justEnded === room.sid ? ' done' : ''}"><div class="row wrap"><h2 style="margin:0">${state.justEnded === room.sid ? 'Đã kết thúc buổi ' + room.n : 'Buổi ' + room.n + ' · ' + formatDate(room.createdAt)}</h2><span class="actions"><button class="btn sm" data-action="renumber" data-sid="${room.sid}">Đổi số buổi</button><button class="icon-btn" data-action="deleteSession" data-sid="${room.sid}" title="Xoá buổi này">🗑</button></span></div><div class="counts mt">${summary}</div></section>
 ${sendList}
 ${actList}
-<details class="soft-details plain"><summary>Bảng chi tiết</summary><div class="table-scroll"><table><thead><tr><th>Học sinh</th>${cols.map((c) => `<th>${c[0]}</th>`).join('')}</tr></thead><tbody>${all.map((m) => { const s = studentStats(room, m), o = observation(m); return `<tr><td>${esc(m.name)}</td>${cols.map((c) => `<td>${esc(c[1](m, s, o))}</td>`).join('')}</tr>`; }).join('')}</tbody></table></div><button class="btn sm mt" data-action="csv">Tải CSV</button></details>
-${courseReport(v)}`;
+<details class="soft-details plain"><summary>Bảng chi tiết</summary><div class="table-scroll"><table><thead><tr><th>Học sinh</th>${cols.map((c) => `<th>${c[0]}</th>`).join('')}</tr></thead><tbody>${all.map((m) => { const s = studentStats(room, m), o = observation(m); return `<tr><td>${esc(m.name)}</td>${cols.map((c) => `<td>${esc(c[1](m, s, o))}</td>`).join('')}</tr>`; }).join('')}</tbody></table></div><button class="btn sm mt" data-action="csv">Tải CSV</button></details>`;
 }
 function courseReport(v) {
   const rooms = v.allRooms; if (rooms.length < 2) return '';
@@ -1058,7 +1126,7 @@ function studentAnswer(room, a, m) {
   const cur = locked ? own : state.studentDrafts[a.id];
   const dis = locked ? 'disabled' : '';
   if (a.kind === 'checkin') return `<div class="s-choices">${a.options.map((o) => `<button class="s-choice ${cur === o ? 'on' : ''}" data-action="pickAns" data-value="${esc(o)}" ${dis}>${esc(o)}</button>`).join('')}</div>`;
-  if (a.kind === 'abcd' && a.choices) return `<div class="s-choices">${['A', 'B', 'C', 'D'].map((v) => `<button class="s-choice ${cur === v ? 'on' : ''}" data-action="pickAns" data-value="${v}" ${dis}><b>${v}</b><span>${rich(a.choices[v])}</span></button>`).join('')}</div>`;
+  if (a.kind === 'abcd' && a.choices) return `<div class="s-choices">${['A', 'B', 'C', 'D'].filter((v) => norm(a.choices[v])).map((v) => `<button class="s-choice ${cur === v ? 'on' : ''}" data-action="pickAns" data-value="${v}" ${dis}><b>${v}</b><span>${rich(a.choices[v])}</span></button>`).join('')}</div>`;
   if (a.kind === 'abcd' || a.kind === 'tf') { const opts = a.kind === 'abcd' ? ['A', 'B', 'C', 'D'] : ['Đúng', 'Sai']; return `<div class="s-grid ${a.kind}">${opts.map((v) => `<button class="s-big ${cur === v ? 'on' : ''}" data-action="pickAns" data-value="${v}" ${dis}>${v}</button>`).join('')}</div>`; }
   if (a.kind === 'tf4') { const all = cur || {}; return ['a', 'b', 'c', 'd'].map((k) => `<div class="pair-row s-pair"><b>${k}</b><div class="actions"><button class="btn ${all[k] === 'Đ' ? 'select' : ''}" data-action="part" data-part="${k}" data-value="Đ" ${dis}>Đúng</button><button class="btn ${all[k] === 'S' ? 'select' : ''}" data-action="part" data-part="${k}" data-value="S" ${dis}>Sai</button></div></div>`).join(''); }
   return `<div class="s-num"><input data-field="numberDraft" class="input big" value="${esc(cur ?? '')}" placeholder="Nhập số" inputmode="decimal" ${dis}></div>`;
@@ -1156,8 +1224,18 @@ function actOnClick(el, ev) {
     case 'teacher': if (conns.teacher?.uid) openTeacher(conns.teacher, state.code); break;
     case 'home': goHome(); break;
     case 'tab': state.tab = el.dataset.id; state.parentPreviewId = null; state.pick = null; refresh(); window.scrollTo(0, 0); break;
-    case 'startSession': startSession(); break;
-    case 'viewSession': state.viewSid = el.dataset.sid; state.parentPreviewId = null; state.justEnded = null; refresh(); break;
+    case 'addSession': addSession(); break;
+    case 'startSession': startSession(el.dataset.sid); break;
+    case 'viewSession': {
+      const s = state.view?.sessions.find((x) => x.id === el.dataset.sid); if (!s) break;
+      state.viewSid = s.id; state.tab = s.id === state.view.liveSid ? 'class' : s.startedAt ? 'report' : 'plan';
+      state.parentPreviewId = null; state.justEnded = null; state.bankEdit = null; state.pick = null; refresh(); window.scrollTo(0, 0); break;
+    }
+    case 'backClass': state.viewSid = null; state.tab = 'sessions'; state.parentPreviewId = null; state.bankEdit = null; state.pick = null; refresh(); window.scrollTo(0, 0); break;
+    case 'planNew': openBankEditor(null, getRoom()?.sid); break;
+    case 'planEdit': openBankEditor(el.dataset.id, getRoom()?.sid); break;
+    case 'planDelete': deleteBankQuestion(el.dataset.id, getRoom()?.sid); break;
+    case 'bankToPlan': bankToPlan(el.dataset.id); break;
     case 'renumber': renumberSession(el.dataset.sid); break;
     case 'deleteSession': deleteSession(el.dataset.sid); break;
     case 'deleteAct': deleteActivity(el.dataset.sid, el.dataset.id); break;
@@ -1237,11 +1315,13 @@ document.addEventListener('input', (e) => {
     }
     case 'numberDraft': { const a = active(getRoom()); if (a) state.studentDrafts[a.id] = v; break; }
     case 'obsNote': storeObservationField(e.target.dataset.mid, 'note', v); break;
+    case 'planNote': storePlanNote(e.target.dataset.mid, v); break;
     case 'note': case 'parentName': case 'parentEmail': storeObservationField(e.target.dataset.mid, f, v); break;
   }
 });
 document.addEventListener('change', (e) => {
   const f = e.target.dataset.field;
+  if (f === 'planNote') storePlanNote(e.target.dataset.mid, e.target.value, true);
   if (['obsNote', 'note', 'parentName', 'parentEmail'].includes(f)) storeObservationField(e.target.dataset.mid, f === 'obsNote' ? 'note' : f, e.target.value, true);
 });
 document.addEventListener('toggle', (e) => { if (e.target.querySelector?.('#rosterDraft')) state.rosterOpen = e.target.open; }, true);
@@ -1249,7 +1329,7 @@ document.addEventListener('keydown', (e) => {
   if (e.key !== 'Enter') return;
   if (state.role === 'home' && (e.target.id === 'joinName' || e.target.id === 'joinCode')) joinStudent(state.joinCode, state.joinName);
   if (state.role === 'student' && e.target.dataset.field === 'numberDraft') actOnClick({ dataset: { action: 'submitAns' } });
-  if (e.target.id === 'sessionNo') startSession();
+  if (e.target.id === 'sessionNo') addSession();
 });
 
 // ---------- Khởi động ----------
