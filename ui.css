@@ -153,3 +153,14 @@
   .counter b{font-size:36px}
 }
 @media(max-width:640px){.subbrand,.demo-pill{display:none}.brand{font-size:14px}.topinner{padding:10px 15px}}
+[hidden]{display:none!important}
+.mb{margin-bottom:12px}
+.class-row{display:flex;gap:8px;align-items:stretch}
+.class-row .class-card{flex:1}
+.icon-btn{border:1px solid var(--line);background:#fff;border-radius:10px;min-width:40px;cursor:pointer;font-size:15px;opacity:.75}
+.icon-btn:hover{opacity:1;border-color:#e3b5b0;background:#fff7f6}
+.start-row{display:flex;align-items:center;justify-content:center;gap:12px;margin-bottom:14px;font-size:22px;font-weight:750}
+.no-input{width:110px;text-align:center;font-size:24px;font-weight:800}
+.plain.done{background:#f3fbf6}
+.feat-card{align-items:center}
+.name-row .rich{display:block;font-size:13px}
