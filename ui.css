@@ -164,3 +164,7 @@
 .plain.done{background:#f3fbf6}
 .feat-card{align-items:center}
 .name-row .rich{display:block;font-size:13px}
+.gate{max-width:380px;text-align:center;padding-top:30px}
+.gate .input{text-align:center;margin:10px 0 12px}
+.team-code{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:22px;padding:12px 16px;border:1px dashed var(--line);border-radius:14px;color:var(--muted)}
+.team-code .code{font-size:16px;margin-left:6px}

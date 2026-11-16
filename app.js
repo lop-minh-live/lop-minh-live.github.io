@@ -101,6 +101,7 @@ const state = {
   role: 'home', code: '', conn: null, view: null, viewSid: null, joinCode: '', joinName: '',
   claimCode: '', claimKey: '', keys: {}, studentDrafts: {}, parentPreviewId: null,
   rosterDraft: '', rosterOpen: false, search: '', busy: false, setup: null, bankEdit: null,
+  teacher: null, teamReady: false, teamKey: '', catalog: [], gateCode: '',
   tab: 'class', tapMode: 'attendance', pick: null, dismissed: {}, justEnded: null, joinClassName: '', showCodeInput: false,
   myClasses: loadJSON(localStorage, 'lopminh:myClasses', []),
 };
@@ -330,6 +331,7 @@ async function saveSetup() {
   const features = setupFeatures();
   if (s.editing) {
     const ok = await write({ 'meta/name': name, 'meta/features': features });
+    if (ok) set(ref(state.conn.db, 'lopminh/catalog/' + state.code + '/name'), name).catch(() => {});
     if (ok) { state.myClasses = state.myClasses.map((r) => (r.code === state.code ? { ...r, name } : r)); saveMyClasses(); state.setup = null; toast('Đã lưu'); render(); }
     return;
   }
@@ -348,6 +350,7 @@ async function saveSetup() {
       } catch (e) { if (!String(e?.code || e?.message).includes('PERMISSION')) throw e; } // trùng mã đang dùng → thử mã khác
     }
     if (!code) { toast('Không tạo được lớp, thử lại'); return; }
+    await set(ref(c.db, 'lopminh/catalog/' + code), { name, createdAt: serverTimestamp() }).catch((e) => console.warn(e));
     rememberClass(code, name, key);
     state.setup = null;
     openTeacher(c, code);
@@ -433,17 +436,65 @@ function endClass() {
 }
 async function deleteClass(code) {
   code = code || state.code;
-  const name = state.myClasses.find((r) => r.code === code)?.name || state.view?.name || code;
+  const name = state.catalog.find((r) => r.code === code)?.name || state.myClasses.find((r) => r.code === code)?.name || state.view?.name || code;
   if (!confirm('Xoá hẳn lớp "' + name + '" và mọi dữ liệu? Không khôi phục được.')) return;
   try {
     const c = state.conn && state.code === code ? state.conn : await conn('teacher');
     await set(ref(c.db, P(code)), null);
+    await set(ref(c.db, 'lopminh/catalog/' + code), null).catch(() => {});
     toast('Đã xoá lớp');
   } catch (e) {
     if (!confirm('Máy này không xoá được lớp trên máy chủ. Chỉ bỏ lớp khỏi danh sách của máy này?')) return;
   }
   state.myClasses = state.myClasses.filter((r) => r.code !== code); saveMyClasses();
   if (state.code === code) goHome(); else render();
+}
+
+// ---------- Nhóm giáo viên: ai có mã giáo viên đều thấy và quản lý mọi lớp ----------
+async function initTeacher() {
+  try {
+    const c = await conn('teacher');
+    const isTeacher = await get(ref(c.db, 'lopminh/teachers/' + c.uid)).then((x) => x.exists(), () => false);
+    if (isTeacher) { enterTeam(c); return true; }
+    state.teamReady = await get(ref(c.db, 'lopminh/teamReady')).then((x) => x.val() === true, () => false);
+  } catch (e) { fail(e); }
+  state.teacher = false; render(); return false;
+}
+function enterTeam(c) {
+  state.teacher = true;
+  onValue(ref(c.db, 'lopminh/catalog'), (x) => { state.catalog = Object.entries(x.val() || {}).map(([code, v]) => ({ code, ...v })).sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0)); render(); }, () => {});
+  onValue(ref(c.db, 'lopminh/team/key'), (x) => { state.teamKey = x.val() || ''; render(); }, () => {});
+  migrateLocalClasses(c);
+  render();
+}
+// Lớp tạo trước khi có nhóm giáo viên (chỉ lưu trên máy này): đưa vào danh mục chung.
+async function migrateLocalClasses(c) {
+  for (const r of state.myClasses) {
+    try {
+      if ((await get(ref(c.db, 'lopminh/catalog/' + r.code))).exists()) continue;
+      const name = (await get(ref(c.db, P(r.code, 'meta/name')))).val(); if (!name) continue;
+      const createdAt = (await get(ref(c.db, P(r.code, 'createdAt')))).val() || now();
+      await set(ref(c.db, 'lopminh/catalog/' + r.code), { name, createdAt });
+    } catch (e) { console.warn(e); }
+  }
+}
+async function createTeam() {
+  if (state.busy) return; state.busy = true;
+  try {
+    const c = await conn('teacher'), key = randomKey();
+    await set(ref(c.db, 'lopminh/team/key'), key);
+    await set(ref(c.db, 'lopminh/teachers/' + c.uid), key);
+    await set(ref(c.db, 'lopminh/teamReady'), true);
+    enterTeam(c);
+  } catch (e) { fail(e, 'Đã có mã giáo viên, hãy nhập mã'); state.teamReady = true; render(); } finally { state.busy = false; }
+}
+async function joinTeam() {
+  const key = norm(state.gateCode).toUpperCase(); if (!key) { toast('Nhập mã giáo viên'); return; }
+  try {
+    const c = await conn('teacher');
+    await set(ref(c.db, 'lopminh/teachers/' + c.uid), key);
+    enterTeam(c);
+  } catch { toast('Sai mã giáo viên'); }
 }
 
 // ---------- Thao tác giáo viên: trong buổi học ----------
@@ -725,11 +776,17 @@ function qrImage() {
 
 // ===== Trang chủ giáo viên =====
 function teacherHome() {
-  const cards = state.myClasses.map((r) => `<div class="class-row"><button class="class-card" data-action="resume" data-code="${esc(r.code)}"><span class="class-icon">📘</span><span><b>${esc(r.name)}</b><small>Mã ${esc(r.code)}</small></span><span class="go">›</span></button><button class="icon-btn" data-action="deleteClass" data-code="${esc(r.code)}" title="Xoá lớp">🗑</button></div>`).join('');
+  if (state.teacher === null) return '<p class="muted center">Đang tải…</p>';
+  if (!state.teacher) {
+    return state.teamReady
+      ? `<div class="home gate"><h1 class="home-title">Giáo viên</h1><input id="gateCode" data-field="gateCode" class="input big" value="${esc(state.gateCode)}" maxlength="20" placeholder="Mã giáo viên" autocomplete="off"><button class="btn primary big-btn" data-action="joinTeam">Vào</button></div>`
+      : `<div class="home gate"><h1 class="home-title">Giáo viên</h1><button class="btn primary big-btn" data-action="createTeam">Bắt đầu</button></div>`;
+  }
+  const cards = state.catalog.map((r) => `<div class="class-row"><button class="class-card" data-action="resume" data-code="${esc(r.code)}"><span class="class-icon">📘</span><span><b>${esc(r.name)}</b><small>Mã ${esc(r.code)}</small></span><span class="go">›</span></button><button class="icon-btn" data-action="deleteClass" data-code="${esc(r.code)}" title="Xoá lớp">🗑</button></div>`).join('');
   return `<div class="home">
-<h1 class="home-title">Lớp của tôi</h1>
+<h1 class="home-title">Các lớp</h1>
 <div class="class-list">${cards}<button class="class-card new" data-action="newClass"><span class="class-icon">＋</span><span><b>Tạo lớp mới</b></span></button></div>
-<details class="soft-details"><summary>Mở lớp từ máy khác</summary><div class="two"><input id="claimCode" data-field="claimCode" class="input" value="${esc(state.claimCode)}" inputmode="numeric" maxlength="6" placeholder="Mã lớp"><input id="claimKey" data-field="claimKey" class="input" value="${esc(state.claimKey)}" maxlength="20" placeholder="Mã quản lý" autocomplete="off"></div><button class="btn mt" data-action="claim">Mở lớp</button></details>
+${state.teamKey ? `<div class="team-code"><span>Mã giáo viên <b class="code">${esc(state.teamKey)}</b></span><button class="btn sm" data-action="copyTeam">Sao chép</button></div>` : ''}
 </div>`;
 }
 
@@ -760,7 +817,7 @@ function teacher(v) {
   if (!tabs.some(([k]) => k === state.tab)) state.tab = 'class';
   const body = { class: tabClass, students: tabStudents, questions: tabQuestions, report: tabReport, settings: tabSettings }[state.tab](v);
   return `<div class="cls">
-<div class="cls-head"><button class="link-btn" data-action="home">‹ Lớp của tôi</button><h1>${esc(v.name)}</h1>${live ? `<div class="muted"><span class="live-dot"></span>Buổi ${liveN}</div>` : ''}</div>
+<div class="cls-head"><button class="link-btn" data-action="home">‹ Các lớp</button><h1>${esc(v.name)}</h1>${live ? `<div class="muted"><span class="live-dot"></span>Buổi ${liveN}</div>` : ''}</div>
 <nav class="tabs">${tabs.map(([k, l]) => `<button class="tab ${state.tab === k ? 'on' : ''}" data-action="tab" data-id="${k}">${l}</button>`).join('')}</nav>
 <div class="tab-body">${body}</div></div>`;
 }
@@ -960,7 +1017,7 @@ function tabSettings(v) {
   const on = FEATURES.filter((x) => v.features[x.id]);
   return `<section class="plain"><h2>Link vào lớp</h2><div class="invite-big"><div>${qrImage()}</div><div class="stack" style="gap:8px"><div class="share-link">${esc(linkStudent())}</div><div>Mã lớp <span class="code">${esc(v.code)}</span></div><div class="actions"><button class="btn primary" data-action="copyLink">Sao chép link</button><button class="btn" data-action="copy">Sao chép mã</button></div></div></div></section>
 <section class="plain"><div class="row wrap"><h2 style="margin:0">Tính năng</h2><button class="btn" data-action="customize">Sửa</button></div><div class="feat-chips">${on.map((x) => `<span>${x.icon} ${x.label}</span>`).join('')}</div></section>
-<section class="plain"><h2>Mã quản lý</h2><p class="hint">Dùng để mở lớp trên máy khác.</p><div class="row" style="justify-content:flex-start"><span class="code">${esc(v.adminKey || '')}</span><button class="btn sm" data-action="copyKey">Sao chép</button></div></section>
+<section class="plain"><h2>Mã giáo viên</h2><p class="hint">Giáo viên khác nhập mã này để cùng quản lý các lớp.</p><div class="row" style="justify-content:flex-start"><span class="code">${esc(state.teamKey || '')}</span><button class="btn sm" data-action="copyTeam">Sao chép</button></div></section>
 <section class="plain danger-zone"><button class="btn danger" data-action="deleteClass">Xoá lớp</button></section>`;
 }
 
@@ -1089,6 +1146,9 @@ function actOnClick(el, ev) {
     case 'toggleKind': state.setup.features.kinds[el.dataset.id] = !state.setup.features.kinds[el.dataset.id]; render(); break;
     case 'saveSetup': saveSetup(); break;
     case 'resume': { const c = state.myClasses.find((r) => r.code === el.dataset.code); resumeTeacher(el.dataset.code, c?.key); break; }
+    case 'createTeam': createTeam(); break;
+    case 'joinTeam': joinTeam(); break;
+    case 'copyTeam': copyText(state.teamKey, 'Đã sao chép mã giáo viên'); break;
     case 'claim': resumeTeacher(norm(state.claimCode).replace(/\D/g, ''), norm(state.claimKey).toUpperCase()); break;
     case 'join': joinStudent(state.joinCode, state.joinName); break;
     case 'showCode': state.showCodeInput = true; render(); break;
@@ -1157,6 +1217,7 @@ document.addEventListener('input', (e) => {
   switch (f) {
     case 'setupName': state.setup.name = v; break;
     case 'setupRoster': state.setup.roster = v; break;
+    case 'gateCode': state.gateCode = v; break;
     case 'claimCode': state.claimCode = v; break;
     case 'claimKey': state.claimKey = v; break;
     case 'joinCode': state.joinCode = v; break;
@@ -1189,6 +1250,7 @@ document.addEventListener('keydown', (e) => {
   if (state.role === 'home' && (e.target.id === 'joinName' || e.target.id === 'joinCode')) joinStudent(state.joinCode, state.joinName);
   if (state.role === 'student' && e.target.dataset.field === 'numberDraft') actOnClick({ dataset: { action: 'number' } });
   if (e.target.id === 'sessionNo') startSession();
+  if (e.target.id === 'gateCode') joinTeam();
 });
 
 // ---------- Khởi động ----------
@@ -1198,6 +1260,7 @@ document.addEventListener('keydown', (e) => {
   document.getElementById('netPill').hidden = true;
   render();
   if (MODE === 'teacher') {
+    if (!(await initTeacher())) return;
     // F5 / mở lại tab: quay về đúng lớp đang điều khiển.
     const code = loadJSON(sessionStorage, 'lopminh:teacherClass', null);
     if (code) { const c = state.myClasses.find((r) => r.code === code); await resumeTeacher(code, c?.key); }
