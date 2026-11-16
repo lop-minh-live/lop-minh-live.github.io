@@ -413,6 +413,12 @@ function deleteSession(sid) {
   write(u).then((ok) => { if (ok) { state.viewSid = null; state.justEnded = null; toast('Đã xoá buổi ' + s.n); } });
 }
 // Xoá một câu đã hỏi trong buổi (không tính vào kết quả nữa).
+function cancelActivity() {
+  const room = getRoom(), a = active(room); if (!a) return;
+  const n = Object.keys(a.responses).length;
+  if (n && !confirm('Huỷ câu này? ' + n + ' học sinh đã trả lời, kết quả sẽ không tính.')) return;
+  write({ ['acts/' + room.sid + '/' + a.id]: null, ['drafts/' + room.sid + '/' + a.id]: null, 'state/activeId': null }).then((ok) => ok && toast('Đã huỷ câu'));
+}
 function deleteActivity(sid, aid) {
   if (!confirm('Xoá câu này khỏi buổi học? Kết quả câu này sẽ không tính nữa.')) return;
   const u = { ['acts/' + sid + '/' + aid]: null, ['drafts/' + sid + '/' + aid]: null };
@@ -484,7 +490,7 @@ function openActivity(kind, phase, extra) {
   if (active(room)) { toast('Chốt câu đang mở trước'); return; }
   const c = checkins[phase];
   const seq = room.activities.reduce((n, a) => Math.max(n, a.seq || 0), 0) + 1;
-  const id = 'a' + String(seq).padStart(3, '0');
+  const id = 'a' + now().toString(36); // mã riêng, không dùng lại mã của câu đã huỷ
   const a = { seq, kind, status: 'open', createdAt: serverTimestamp(), prompt: kind === 'checkin' ? c.prompt : 'Đáp án của em là gì?' };
   if (kind === 'checkin') Object.assign(a, { phase, title: c.title, options: c.options });
   const u = {};
@@ -833,12 +839,12 @@ function questionFocus(room, a) {
   const title = a.kind === 'checkin' ? a.title : 'Câu ' + numberOf(room, a);
   const choices = a.kind === 'abcd' && a.choices ? `<div class="q-list">${['A', 'B', 'C', 'D'].map((k) => `<div><b>${k}.</b> ${rich(a.choices[k])}</div>`).join('')}</div>` : '';
   return `<section class="focus">
-<div class="eyebrow">${esc(title)}</div>
+<div class="focus-top"><button class="btn sm" data-action="cancelAct">← Quay lại</button><div class="eyebrow">${esc(title)}</div></div>
 ${a.fromBank ? questionBody(a) + choices : a.kind === 'checkin' ? `<div class="q-text">${esc(a.prompt)}</div>` : ''}
 <div class="counter"><b>${done}</b><span>/${total} đã trả lời</span></div>
 <div class="progress big"><div style="width:${total ? 100 * done / total : 0}%"></div></div>
 ${waiting.length ? `<div class="waiting"><div class="hint">Chưa trả lời</div><div class="waiting-names">${waiting.slice(0, 40).map((m) => `<span>${esc(m.name)}</span>`).join('')}</div></div>` : ''}
-${a.kind === 'checkin' ? distribution(a) + `<button class="btn primary big-btn" data-action="close">Đóng check-in</button>` : `${keySelector(room, a)}<button class="btn primary big-btn" data-action="close">Chốt</button><button class="link-btn danger" data-action="skip">Bỏ câu</button>`}
+${a.kind === 'checkin' ? distribution(a) + `<button class="btn primary big-btn" data-action="close">Kết thúc check-in</button>` : `${keySelector(room, a)}<button class="btn primary big-btn" data-action="close">Kết thúc & chấm điểm</button>`}
 </section>`;
 }
 function resultCard(room, a) {
@@ -1021,15 +1027,20 @@ function student(v) {
 function studentQuestion(room, a, m) {
   const own = a.responses[m.id];
   const head = a.kind === 'checkin' ? `<div class="q-text">${esc(a.prompt)}</div>` : a.fromBank ? questionBody(a) : `<div class="q-text">Chọn đáp án đúng</div>`;
-  return `<section class="s-question"><div class="eyebrow">${a.kind === 'checkin' ? esc(a.title) : 'Câu ' + numberOf(room, a)}</div>${head}${studentAnswer(room, a, m)}${own ? '<div class="s-ok">✓ Đã gửi</div>' : ''}</section>`;
+  const pick = state.studentDrafts[a.id];
+  const ready = a.kind === 'tf4' ? pick && ['a', 'b', 'c', 'd'].every((k) => pick[k]) : a.kind === 'num' ? true : pick != null && pick !== '';
+  const foot = own ? '<div class="s-ok">✓ Đã chốt đáp án</div>' : `<button class="btn primary big-btn s-submit" data-action="submitAns" ${ready ? '' : 'disabled'}>${a.kind === 'checkin' ? 'Gửi' : 'Chốt đáp án'}</button>`;
+  return `<section class="s-question"><div class="eyebrow">${a.kind === 'checkin' ? esc(a.title) : 'Câu ' + numberOf(room, a)}</div>${head}${studentAnswer(room, a, m)}${foot}</section>`;
 }
 function studentAnswer(room, a, m) {
-  const own = a.responses[m.id]?.value; const draft = state.studentDrafts[a.id] || {};
-  if (a.kind === 'checkin') return `<div class="s-choices">${a.options.map((o) => `<button class="s-choice ${own === o ? 'on' : ''}" data-action="answer" data-value="${esc(o)}">${esc(o)}</button>`).join('')}</div>`;
-  if (a.kind === 'abcd' && a.choices) return `<div class="s-choices">${['A', 'B', 'C', 'D'].map((v) => `<button class="s-choice ${own === v ? 'on' : ''}" data-action="answer" data-value="${v}"><b>${v}</b><span>${rich(a.choices[v])}</span></button>`).join('')}</div>`;
-  if (a.kind === 'abcd' || a.kind === 'tf') { const opts = a.kind === 'abcd' ? ['A', 'B', 'C', 'D'] : ['Đúng', 'Sai']; return `<div class="s-grid ${a.kind}">${opts.map((v) => `<button class="s-big ${own === v ? 'on' : ''}" data-action="answer" data-value="${v}">${v}</button>`).join('')}</div>`; }
-  if (a.kind === 'tf4') { const all = draft && Object.keys(draft).length ? draft : (own || {}); return `${['a', 'b', 'c', 'd'].map((k) => `<div class="pair-row s-pair"><b>${k}</b><div class="actions"><button class="btn ${all[k] === 'Đ' ? 'select' : ''}" data-action="part" data-part="${k}" data-value="Đ">Đúng</button><button class="btn ${all[k] === 'S' ? 'select' : ''}" data-action="part" data-part="${k}" data-value="S">Sai</button></div></div>`).join('')}`; }
-  return `<div class="s-num"><input data-field="numberDraft" class="input big" value="${esc(state.studentDrafts[a.id] ?? own ?? '')}" placeholder="Nhập số" inputmode="decimal"><button class="btn primary big-btn" data-action="number">Gửi</button></div>`;
+  const own = a.responses[m.id]?.value, locked = own != null;
+  const cur = locked ? own : state.studentDrafts[a.id];
+  const dis = locked ? 'disabled' : '';
+  if (a.kind === 'checkin') return `<div class="s-choices">${a.options.map((o) => `<button class="s-choice ${cur === o ? 'on' : ''}" data-action="pickAns" data-value="${esc(o)}" ${dis}>${esc(o)}</button>`).join('')}</div>`;
+  if (a.kind === 'abcd' && a.choices) return `<div class="s-choices">${['A', 'B', 'C', 'D'].map((v) => `<button class="s-choice ${cur === v ? 'on' : ''}" data-action="pickAns" data-value="${v}" ${dis}><b>${v}</b><span>${rich(a.choices[v])}</span></button>`).join('')}</div>`;
+  if (a.kind === 'abcd' || a.kind === 'tf') { const opts = a.kind === 'abcd' ? ['A', 'B', 'C', 'D'] : ['Đúng', 'Sai']; return `<div class="s-grid ${a.kind}">${opts.map((v) => `<button class="s-big ${cur === v ? 'on' : ''}" data-action="pickAns" data-value="${v}" ${dis}>${v}</button>`).join('')}</div>`; }
+  if (a.kind === 'tf4') { const all = cur || {}; return ['a', 'b', 'c', 'd'].map((k) => `<div class="pair-row s-pair"><b>${k}</b><div class="actions"><button class="btn ${all[k] === 'Đ' ? 'select' : ''}" data-action="part" data-part="${k}" data-value="Đ" ${dis}>Đúng</button><button class="btn ${all[k] === 'S' ? 'select' : ''}" data-action="part" data-part="${k}" data-value="S" ${dis}>Sai</button></div></div>`).join(''); }
+  return `<div class="s-num"><input data-field="numberDraft" class="input big" value="${esc(cur ?? '')}" placeholder="Nhập số" inputmode="decimal" ${dis}></div>`;
 }
 function studentResult(room, a, m) {
   const r = a.responses[m.id];
@@ -1146,23 +1157,24 @@ function actOnClick(el, ev) {
     case 'bankKind': { const e = state.bankEdit; if (e.kind !== el.dataset.id) { e.kind = el.dataset.id; e.key = e.kind === 'tf4' ? {} : ''; } render(); break; }
     case 'bankKey': state.bankEdit.key = el.dataset.val; render(); break;
     case 'bankKeyPart': { const e = state.bankEdit; e.key = { ...(typeof e.key === 'object' && e.key ? e.key : {}), [el.dataset.part]: el.dataset.val }; render(); break; }
-    case 'answer': storeAnswer(el.dataset.value); break;
+    case 'pickAns': { const a = active(room); if (!a || a.responses[state.conn.uid]) return; state.studentDrafts[a.id] = el.dataset.value; render(); break; }
     case 'part': {
-      const a = active(room); if (!a) return;
-      const old = state.studentDrafts[a.id] || a.responses[state.conn.uid]?.value || {};
-      const d = { ...old, [el.dataset.part]: el.dataset.value }; state.studentDrafts[a.id] = d;
-      if (['a', 'b', 'c', 'd'].every((p) => d[p])) storeAnswer(d); render(); break;
+      const a = active(room); if (!a || a.responses[state.conn.uid]) return;
+      state.studentDrafts[a.id] = { ...(state.studentDrafts[a.id] || {}), [el.dataset.part]: el.dataset.value }; render(); break;
     }
-    case 'number': {
-      const a = active(room); if (!a) return;
-      const v = norm(state.studentDrafts[a.id] ?? '');
-      if (parseNumeric(v) === null) { toast('Nhập một số, ví dụ 0,5 hoặc 1/2'); return; }
+    case 'submitAns': {
+      const a = active(room); if (!a || a.responses[state.conn.uid]) return;
+      let v = state.studentDrafts[a.id];
+      if (a.kind === 'num') { v = norm(v ?? ''); if (parseNumeric(v) === null) { toast('Nhập một số, ví dụ 0,5 hoặc 1/2'); return; } }
+      if (a.kind === 'tf4' && !(v && ['a', 'b', 'c', 'd'].every((k) => v[k]))) { toast('Chọn đủ 4 ý'); return; }
+      if (v == null || v === '') { toast('Chọn một đáp án'); return; }
       storeAnswer(v); break;
     }
     case 'key': { const a = active(room); if (!a) return; state.keys[keyId(room, a)] = el.dataset.val; saveDraftKey(room, a); render(); break; }
     case 'keypart': { const a = active(room); if (!a) return; const k = keyId(room, a); state.keys[k] = { ...(state.keys[k] || {}), [el.dataset.part]: el.dataset.val }; saveDraftKey(room, a); render(); break; }
     case 'close': closeActivity(false); break;
     case 'skip': closeActivity(true); break;
+    case 'cancelAct': cancelActivity(); break;
     case 'end': endClass(); break;
     case 'copy': copyText(state.code, 'Đã sao chép mã lớp'); break;
     case 'copyLink': copyText(linkStudent(), 'Đã sao chép link'); break;
@@ -1215,7 +1227,7 @@ document.addEventListener('toggle', (e) => { if (e.target.querySelector?.('#rost
 document.addEventListener('keydown', (e) => {
   if (e.key !== 'Enter') return;
   if (state.role === 'home' && (e.target.id === 'joinName' || e.target.id === 'joinCode')) joinStudent(state.joinCode, state.joinName);
-  if (state.role === 'student' && e.target.dataset.field === 'numberDraft') actOnClick({ dataset: { action: 'number' } });
+  if (state.role === 'student' && e.target.dataset.field === 'numberDraft') actOnClick({ dataset: { action: 'submitAns' } });
   if (e.target.id === 'sessionNo') startSession();
 });
 

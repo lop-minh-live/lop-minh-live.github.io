@@ -168,3 +168,8 @@
 .gate .input{text-align:center;margin:10px 0 12px}
 .team-code{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:22px;padding:12px 16px;border:1px dashed var(--line);border-radius:14px;color:var(--muted)}
 .team-code .code{font-size:16px;margin-left:6px}
+.focus-top{display:flex;align-items:center;gap:12px;margin-bottom:6px}
+.focus-top .eyebrow{margin:0}
+.s-submit{margin-top:14px}
+.s-choice:disabled,.s-big:disabled{cursor:default;opacity:1}
+.s-choice:disabled:not(.on),.s-big:disabled:not(.on){opacity:.45}
