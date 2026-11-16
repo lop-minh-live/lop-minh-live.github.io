@@ -101,7 +101,7 @@ const state = {
   role: 'home', code: '', conn: null, view: null, viewSid: null, joinCode: '', joinName: '',
   claimCode: '', claimKey: '', keys: {}, studentDrafts: {}, parentPreviewId: null,
   rosterDraft: '', rosterOpen: false, search: '', busy: false, setup: null, bankEdit: null,
-  teacher: null, teamReady: false, teamKey: '', catalog: [], gateCode: '',
+  teacher: null, catalog: [],
   tab: 'class', tapMode: 'attendance', pick: null, dismissed: {}, justEnded: null, joinClassName: '', showCodeInput: false,
   myClasses: loadJSON(localStorage, 'lopminh:myClasses', []),
 };
@@ -451,23 +451,18 @@ async function deleteClass(code) {
 }
 
 // ---------- Nhóm giáo viên: ai có mã giáo viên đều thấy và quản lý mọi lớp ----------
+// Ai mở trang giáo viên đều là giáo viên: thấy mọi lớp (lopminh/catalog) và có toàn quyền.
 async function initTeacher() {
   try {
     const c = await conn('teacher');
-    const isTeacher = await get(ref(c.db, 'lopminh/teachers/' + c.uid)).then((x) => x.exists(), () => false);
-    if (isTeacher) { enterTeam(c); return true; }
-    state.teamReady = await get(ref(c.db, 'lopminh/teamReady')).then((x) => x.val() === true, () => false);
-  } catch (e) { fail(e); }
-  state.teacher = false; render(); return false;
+    await set(ref(c.db, 'lopminh/teachers/' + c.uid), true);
+    state.teacher = true;
+    onValue(ref(c.db, 'lopminh/catalog'), (x) => { state.catalog = Object.entries(x.val() || {}).map(([code, v]) => ({ code, ...v })).sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0)); render(); }, () => {});
+    migrateLocalClasses(c);
+    render(); return true;
+  } catch (e) { fail(e); return false; }
 }
-function enterTeam(c) {
-  state.teacher = true;
-  onValue(ref(c.db, 'lopminh/catalog'), (x) => { state.catalog = Object.entries(x.val() || {}).map(([code, v]) => ({ code, ...v })).sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0)); render(); }, () => {});
-  onValue(ref(c.db, 'lopminh/team/key'), (x) => { state.teamKey = x.val() || ''; render(); }, () => {});
-  migrateLocalClasses(c);
-  render();
-}
-// Lớp tạo trước khi có nhóm giáo viên (chỉ lưu trên máy này): đưa vào danh mục chung.
+// Lớp tạo trước đây (chỉ lưu trên máy này): đưa vào danh sách chung.
 async function migrateLocalClasses(c) {
   for (const r of state.myClasses) {
     try {
@@ -477,24 +472,6 @@ async function migrateLocalClasses(c) {
       await set(ref(c.db, 'lopminh/catalog/' + r.code), { name, createdAt });
     } catch (e) { console.warn(e); }
   }
-}
-async function createTeam() {
-  if (state.busy) return; state.busy = true;
-  try {
-    const c = await conn('teacher'), key = randomKey();
-    await set(ref(c.db, 'lopminh/team/key'), key);
-    await set(ref(c.db, 'lopminh/teachers/' + c.uid), key);
-    await set(ref(c.db, 'lopminh/teamReady'), true);
-    enterTeam(c);
-  } catch (e) { fail(e, 'Đã có mã giáo viên, hãy nhập mã'); state.teamReady = true; render(); } finally { state.busy = false; }
-}
-async function joinTeam() {
-  const key = norm(state.gateCode).toUpperCase(); if (!key) { toast('Nhập mã giáo viên'); return; }
-  try {
-    const c = await conn('teacher');
-    await set(ref(c.db, 'lopminh/teachers/' + c.uid), key);
-    enterTeam(c);
-  } catch { toast('Sai mã giáo viên'); }
 }
 
 // ---------- Thao tác giáo viên: trong buổi học ----------
@@ -777,16 +754,11 @@ function qrImage() {
 // ===== Trang chủ giáo viên =====
 function teacherHome() {
   if (state.teacher === null) return '<p class="muted center">Đang tải…</p>';
-  if (!state.teacher) {
-    return state.teamReady
-      ? `<div class="home gate"><h1 class="home-title">Giáo viên</h1><input id="gateCode" data-field="gateCode" class="input big" value="${esc(state.gateCode)}" maxlength="20" placeholder="Mã giáo viên" autocomplete="off"><button class="btn primary big-btn" data-action="joinTeam">Vào</button></div>`
-      : `<div class="home gate"><h1 class="home-title">Giáo viên</h1><button class="btn primary big-btn" data-action="createTeam">Bắt đầu</button></div>`;
-  }
+  if (!state.teacher) return '<p class="muted center">Không kết nối được, tải lại trang.</p>';
   const cards = state.catalog.map((r) => `<div class="class-row"><button class="class-card" data-action="resume" data-code="${esc(r.code)}"><span class="class-icon">📘</span><span><b>${esc(r.name)}</b><small>Mã ${esc(r.code)}</small></span><span class="go">›</span></button><button class="icon-btn" data-action="deleteClass" data-code="${esc(r.code)}" title="Xoá lớp">🗑</button></div>`).join('');
   return `<div class="home">
 <h1 class="home-title">Các lớp</h1>
 <div class="class-list">${cards}<button class="class-card new" data-action="newClass"><span class="class-icon">＋</span><span><b>Tạo lớp mới</b></span></button></div>
-${state.teamKey ? `<div class="team-code"><span>Mã giáo viên <b class="code">${esc(state.teamKey)}</b></span><button class="btn sm" data-action="copyTeam">Sao chép</button></div>` : ''}
 </div>`;
 }
 
@@ -1017,7 +989,6 @@ function tabSettings(v) {
   const on = FEATURES.filter((x) => v.features[x.id]);
   return `<section class="plain"><h2>Link vào lớp</h2><div class="invite-big"><div>${qrImage()}</div><div class="stack" style="gap:8px"><div class="share-link">${esc(linkStudent())}</div><div>Mã lớp <span class="code">${esc(v.code)}</span></div><div class="actions"><button class="btn primary" data-action="copyLink">Sao chép link</button><button class="btn" data-action="copy">Sao chép mã</button></div></div></div></section>
 <section class="plain"><div class="row wrap"><h2 style="margin:0">Tính năng</h2><button class="btn" data-action="customize">Sửa</button></div><div class="feat-chips">${on.map((x) => `<span>${x.icon} ${x.label}</span>`).join('')}</div></section>
-<section class="plain"><h2>Mã giáo viên</h2><p class="hint">Giáo viên khác nhập mã này để cùng quản lý các lớp.</p><div class="row" style="justify-content:flex-start"><span class="code">${esc(state.teamKey || '')}</span><button class="btn sm" data-action="copyTeam">Sao chép</button></div></section>
 <section class="plain danger-zone"><button class="btn danger" data-action="deleteClass">Xoá lớp</button></section>`;
 }
 
@@ -1146,9 +1117,6 @@ function actOnClick(el, ev) {
     case 'toggleKind': state.setup.features.kinds[el.dataset.id] = !state.setup.features.kinds[el.dataset.id]; render(); break;
     case 'saveSetup': saveSetup(); break;
     case 'resume': { const c = state.myClasses.find((r) => r.code === el.dataset.code); resumeTeacher(el.dataset.code, c?.key); break; }
-    case 'createTeam': createTeam(); break;
-    case 'joinTeam': joinTeam(); break;
-    case 'copyTeam': copyText(state.teamKey, 'Đã sao chép mã giáo viên'); break;
     case 'claim': resumeTeacher(norm(state.claimCode).replace(/\D/g, ''), norm(state.claimKey).toUpperCase()); break;
     case 'join': joinStudent(state.joinCode, state.joinName); break;
     case 'showCode': state.showCodeInput = true; render(); break;
@@ -1217,7 +1185,6 @@ document.addEventListener('input', (e) => {
   switch (f) {
     case 'setupName': state.setup.name = v; break;
     case 'setupRoster': state.setup.roster = v; break;
-    case 'gateCode': state.gateCode = v; break;
     case 'claimCode': state.claimCode = v; break;
     case 'claimKey': state.claimKey = v; break;
     case 'joinCode': state.joinCode = v; break;
@@ -1250,7 +1217,6 @@ document.addEventListener('keydown', (e) => {
   if (state.role === 'home' && (e.target.id === 'joinName' || e.target.id === 'joinCode')) joinStudent(state.joinCode, state.joinName);
   if (state.role === 'student' && e.target.dataset.field === 'numberDraft') actOnClick({ dataset: { action: 'number' } });
   if (e.target.id === 'sessionNo') startSession();
-  if (e.target.id === 'gateCode') joinTeam();
 });
 
 // ---------- Khởi động ----------
