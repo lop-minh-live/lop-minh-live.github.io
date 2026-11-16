@@ -482,7 +482,11 @@ async function migrateLocalClasses(c) {
 
 // ---------- Thao tác giáo viên: trong buổi học ----------
 function active(room) { return (room && room.activities.find((a) => a.id === room.activeId)) || null; }
-function numberOf(room, act) { const i = room.activities.findIndex((a) => a.id === act.id); return room.activities.slice(0, i + 1).filter((a) => a.kind !== 'checkin').length; }
+// Số câu lưu cố định lúc mở (no), xoá câu khác không làm đổi số. Câu cũ chưa có no thì đếm như trước.
+function numberOf(room, act) {
+  if (act.no) return act.no;
+  const i = room.activities.findIndex((a) => a.id === act.id); return room.activities.slice(0, i + 1).filter((a) => a.kind !== 'checkin').length;
+}
 const keyId = (room, a) => room.sid + '/' + a.id;
 // extra: nội dung câu soạn sẵn (đề, lựa chọn) và đáp án có sẵn.
 function openActivity(kind, phase, extra) {
@@ -493,6 +497,7 @@ function openActivity(kind, phase, extra) {
   const id = 'a' + now().toString(36); // mã riêng, không dùng lại mã của câu đã huỷ
   const a = { seq, kind, status: 'open', createdAt: serverTimestamp(), prompt: kind === 'checkin' ? c.prompt : 'Đáp án của em là gì?' };
   if (kind === 'checkin') Object.assign(a, { phase, title: c.title, options: c.options });
+  else a.no = room.activities.filter((x) => x.kind !== 'checkin').reduce((n, x) => Math.max(n, numberOf(room, x)), 0) + 1;
   const u = {};
   if (extra) {
     a.prompt = extra.text; a.fromBank = extra.id;
@@ -632,11 +637,27 @@ async function joinStudent(code, name, asPreview) {
     listenStudent(code); showNet();
   } catch (e) { fail(e, 'Không vào được lớp'); } finally { state.busy = false; }
 }
-function storeAnswer(value) {
+// Cô xem màn học sinh: đánh dấu máy này là máy giáo viên của lớp trước, để "Xem thử" không bị tính là một học sinh.
+async function previewAsStudent() {
+  const d = raw.cls, uid = state.conn.uid, u = {};
+  if (!d?.hosts?.[uid]) u['hosts/' + uid] = d.adminKey;
+  const rid = nameId('Xem thử');
+  if (d?.roster?.[rid]?.auto) u['roster/' + rid] = null; // dọn dòng "Xem thử" lỡ tạo trước đây
+  if (Object.keys(u).length && !(await write(u))) return;
+  joinStudent(state.code, 'Xem thử', true);
+}
+async function storeAnswer(value) {
   const room = getRoom(), a = active(room);
   if (!room || !a || a.status !== 'open' || state.role !== 'student') { toast('Không có hoạt động đang mở'); return; }
-  set(ref(state.conn.db, P(state.code, 'responses/' + state.conn.uid + '/' + room.sid + '/' + a.id)), { value, at: serverTimestamp() })
-    .catch((e) => fail(e, 'Cô đã chốt câu này, không gửi được nữa'));
+  const db = state.conn.db, uid = state.conn.uid;
+  // Em vừa vào lớp: ghi "đã vào buổi" xong rồi mới gửi đáp án (luật cần có bản ghi này).
+  if (raw.attend?.[room.sid] == null) await set(ref(db, P(state.code, 'attend/' + room.sid + '/' + uid)), serverTimestamp()).catch(() => {});
+  try {
+    await set(ref(db, P(state.code, 'responses/' + uid + '/' + room.sid + '/' + a.id)), { value, at: serverTimestamp() });
+  } catch (e) {
+    const still = active(getRoom())?.id === a.id;
+    fail(e, still ? 'Chưa gửi được, bấm lại' : 'Cô đã chốt câu này, không gửi được nữa');
+  }
 }
 
 // ---------- Chấm và thống kê (giữ nguyên công thức v2) ----------
@@ -1131,7 +1152,7 @@ function actOnClick(el, ev) {
     case 'claim': resumeTeacher(norm(state.claimCode).replace(/\D/g, ''), norm(state.claimKey).toUpperCase()); break;
     case 'join': joinStudent(state.joinCode, state.joinName); break;
     case 'showCode': state.showCodeInput = true; render(); break;
-    case 'preview': if (state.view?.liveSid) joinStudent(state.code, 'Xem thử', true); break;
+    case 'preview': if (state.view?.liveSid) previewAsStudent(); break;
     case 'teacher': if (conns.teacher?.uid) openTeacher(conns.teacher, state.code); break;
     case 'home': goHome(); break;
     case 'tab': state.tab = el.dataset.id; state.parentPreviewId = null; state.pick = null; refresh(); window.scrollTo(0, 0); break;
