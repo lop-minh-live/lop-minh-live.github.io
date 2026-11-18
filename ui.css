@@ -173,3 +173,25 @@
 .s-submit{margin-top:14px}
 .s-choice:disabled,.s-big:disabled{cursor:default;opacity:1}
 .s-choice:disabled:not(.on),.s-big:disabled:not(.on){opacity:.45}
+/* Danh sách từng em: trong lớp / đã rời / chưa vào, kèm đáp án */
+.st-head{display:flex;flex-wrap:wrap;gap:12px;font-size:13px;color:var(--muted);margin:14px 0 8px}
+.st-head .in b{color:#126b52}.st-head .left b{color:#b06a12}
+.st-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:6px}
+.st-row{display:flex;align-items:center;gap:8px;border:1px solid var(--line);border-radius:10px;padding:7px 10px;background:#fff;font-size:14px;min-width:0}
+.st-row b{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.st-dot{width:8px;height:8px;border-radius:99px;flex:0 0 8px;background:#c4ced3}
+.st-row.in .st-dot{background:#26a56b}.st-row.left .st-dot{background:#e0a33d}
+.st-row.out{opacity:.55}
+.st-p{font-size:11px;color:var(--muted);white-space:nowrap}
+.st-ans{margin-left:auto;font-weight:700;white-space:nowrap;max-width:45%;overflow:hidden;text-overflow:ellipsis}
+.st-ans.none{font-weight:400;color:var(--muted);font-size:12px}
+.st-ans .ok{color:#1f9a5c}.st-ans .bad{color:#d0473a}
+.focus .st-head{margin-top:18px}
+/* Bài cần chữa */
+.fix-list{display:grid;gap:8px;margin:10px 0}
+.fix-row{border:1px solid var(--line);border-radius:10px;padding:8px 10px;background:#fff}
+.fix-row .waiting-names{margin-top:6px}
+.s-nofix{margin-top:10px;width:100%}
+.quick-btn.on{border-color:var(--brand);background:var(--brand-light)}
+.st-row.long{flex-wrap:wrap}
+.st-row.long .st-ans{white-space:pre-wrap;max-width:100%;margin-left:0;flex-basis:100%;font-weight:500;overflow-wrap:anywhere}
