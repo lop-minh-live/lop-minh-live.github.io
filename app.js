@@ -135,6 +135,8 @@ const checkins = {
   end: { title: 'Check-in cuối giờ', prompt: 'Con cảm thấy thế nào về bài học hôm nay?', options: ['✨ Khá tự tin', '🙂 Hiểu phần lớn', '🌱 Cần ôn thêm'] },
   hw: { title: 'Check-in BTVN', prompt: 'Con đã nắm được BTVN chưa?', options: ['Đã nắm chắc', 'Còn vài chỗ chưa chắc', 'Chưa nắm được'] },
   fix: { title: 'Bài cần chữa', prompt: 'Bài con cần chữa', options: null },
+  noted: { title: 'Ghi bài', prompt: 'Con ghi bài xong chưa?', options: ['Xong rồi ạ', 'Con chưa xong'] },
+  fixed: { title: 'Chữa bài', prompt: 'Con chữa bài xong chưa?', options: ['Xong rồi ạ', 'Con chưa xong'] },
 };
 const NO_FIX = 'Không cần';
 // "2, 5, bài 7a" -> ['2', '5', '7a']
@@ -970,7 +972,8 @@ function nextActions(v, room) {
       : `<section class="next-card muted-card"><span>Chưa có câu soạn sẵn.</span> <button class="link-btn" data-action="tab" data-id="plan">Soạn câu</button></section>`);
   }
   if (feat('quick') && kinds.length) blocks.push(`<section class="next-card"><div class="eyebrow">Hỏi nhanh</div><div class="quick-grid">${kinds.map(([k, t]) => `<button class="quick-btn ${k === 'short' && state.pickFormat ? 'on' : ''}" data-action="open" data-kind="${k}">${t}</button>`).join('')}</div>${state.pickFormat ? `<div class="hint mt">Kiểu đáp án</div><div class="quick-grid">${FORMATS.map(([f, l]) => `<button class="quick-btn soft" data-action="openShort" data-fmt="${f}">${l}</button>`).join('')}</div>` : ''}</section>`);
-  if (feat('homework')) blocks.push(`<section class="next-card"><div class="eyebrow">Bài tập về nhà</div><div class="quick-grid"><button class="quick-btn soft" data-action="checkin" data-phase="hw">Đã nắm BTVN chưa?</button><button class="quick-btn soft" data-action="checkin" data-phase="fix">Bài cần chữa</button></div></section>`);
+  const hwBtns = [feat('notebook') && ['noted', 'Ghi bài xong chưa?'], feat('homework') && ['fixed', 'Chữa bài xong chưa?'], feat('homework') && ['hw', 'Đã nắm BTVN chưa?'], feat('homework') && ['fix', 'Bài cần chữa']].filter(Boolean);
+  if (hwBtns.length) blocks.push(`<section class="next-card"><div class="eyebrow">Ghi bài & BTVN</div><div class="quick-grid">${hwBtns.map(([k, t]) => `<button class="quick-btn soft" data-action="checkin" data-phase="${k}">${t}</button>`).join('')}</div></section>`);
   if (feat('checkin')) blocks.push(`<section class="next-card"><div class="eyebrow">Check-in</div><div class="quick-grid">${[['start', 'Đầu giờ'], ['middle', 'Giữa giờ'], ['end', 'Cuối giờ']].map(([k, t]) => `<button class="quick-btn soft" data-action="checkin" data-phase="${k}">${t}</button>`).join('')}</div></section>`);
   return blocks.join('');
 }
@@ -990,7 +993,9 @@ function studentList(room, a) {
   }).join('');
   return `<div class="st-head">${counts.map(([p, n]) => `<span class="${p}"><b>${n}</b> ${presenceLabel[p].toLowerCase()}</span>`).join('')}</div><div class="st-list">${rows}</div>`;
 }
-function questionTitle(room, a) { return a.kind === 'checkin' ? a.title : 'Câu ' + numberOf(room, a) + (a.kind === 'short' ? ' · ' + formatLabel[a.format] : a.kind === 'text' ? ' · Tự luận' : ''); }
+// Không đánh số câu: chỉ ghi dạng câu.
+const kindName = { abcd: 'ABCD', tf: 'Đúng / Sai', tf4: 'Đ/S bốn ý', num: 'Điền số', text: 'Tự luận' };
+function questionTitle(room, a) { return a.kind === 'checkin' ? a.title : a.kind === 'short' ? 'Điền ' + (formatLabel[a.format] || '').toLowerCase() : kindName[a.kind] || ''; }
 function questionFocus(room, a) {
   const inClass = Object.values(room.members).filter((m) => m.joinedAt != null);
   const done = inClass.filter((m) => a.responses[m.id]).length, total = inClass.length;
@@ -1117,7 +1122,7 @@ function tabReport(v) {
   const summary = [`<span><b>${all.length}</b> học sinh</span>`, feat('attendance') ? `<span><b>${present}</b> có mặt</span>` : `<span><b>${inClass}</b> vào lớp</span>`, feat('camera') && `<span><b>${cam}</b> bật cam</span>`, q && `<span><b>${nq}</b> câu</span>`, q && acc.pct != null && `<span>đúng <b>${acc.pct}%</b></span>`].filter(Boolean).join('');
   const sendList = feat('parent') ? `<section class="plain"><h2>Gửi phụ huynh</h2><div class="send-list">${all.map((m) => { const s = studentStats(room, m), o = observation(m); const short = [feat('attendance') && attendanceLabels[attendanceOf(m)], q && s.eligible && `đúng ${s.correct}/${s.eligible}`].filter(Boolean).join(' · '); return `<div class="send-row ${o.delivery === 'manually_shared' ? 'sent' : ''}"><div><b>${esc(m.name)}</b><div class="tiny muted">${esc(short)}</div></div><div class="actions">${o.delivery === 'manually_shared' ? '<span class="chip good">Đã gửi</span>' : ''}<button class="btn sm primary" data-action="zalo" data-mid="${esc(m.id)}">Sao chép tin Zalo</button>${o.parentEmail ? `<button class="btn sm" data-action="mail" data-mid="${esc(m.id)}">Email</button>` : ''}<button class="btn sm" data-action="parentPreview" data-mid="${esc(m.id)}">Xem</button></div></div>`; }).join('')}</div></section>` : '';
   const acts = room.activities;
-  const actList = acts.length ? `<details class="soft-details plain"><summary>Các câu đã hỏi (${acts.length})</summary>${acts.map((a) => { const res = Object.values(a.responses); const right = res.filter((r) => graded(a, r)).length; const label = a.kind === 'checkin' ? a.title : 'Câu ' + numberOf(room, a) + (a.fromBank ? ': ' : ' · ' + labelKind[a.kind]); const info = a.status === 'graded' ? `${right}/${res.length} đúng · đáp án ${esc(keyText(a.kind, a.key))}` : a.status === 'skipped' ? 'đã bỏ' : a.status === 'open' ? 'đang mở' : `${res.length} trả lời`; return `<div class="name-row"><span>${esc(label)}${a.fromBank ? rich(a.prompt) : ''}<div class="tiny muted">${info}</div>${a.phase === 'fix' ? fixSummary(a, room) : ''}</span><button class="icon-btn" data-action="deleteAct" data-sid="${room.sid}" data-id="${a.id}" title="Xoá câu">🗑</button></div>`; }).join('')}</details>` : '';
+  const actList = acts.length ? `<details class="soft-details plain"><summary>Các câu đã hỏi (${acts.length})</summary>${acts.map((a) => { const res = Object.values(a.responses); const right = res.filter((r) => graded(a, r)).length; const label = questionTitle(room, a) + (a.fromBank ? ': ' : ''); const info = a.status === 'graded' ? `${right}/${res.length} đúng · đáp án ${esc(keyText(a.kind, a.key))}` : a.status === 'skipped' ? 'đã bỏ' : a.status === 'open' ? 'đang mở' : `${res.length} trả lời`; return `<div class="name-row"><span>${esc(label)}${a.fromBank ? rich(a.prompt) : ''}<div class="tiny muted">${info}</div>${a.phase === 'fix' ? fixSummary(a, room) : ''}</span><button class="icon-btn" data-action="deleteAct" data-sid="${room.sid}" data-id="${a.id}" title="Xoá câu">🗑</button></div>`; }).join('')}</details>` : '';
   const cols = sessionColumns();
   return `<section class="plain${state.justEnded === room.sid ? ' done' : ''}"><div class="row wrap"><h2 style="margin:0">${state.justEnded === room.sid ? 'Đã kết thúc buổi ' + room.n : 'Buổi ' + room.n + ' · ' + formatDate(room.createdAt)}</h2><span class="actions"><button class="btn sm" data-action="renumber" data-sid="${room.sid}">Đổi số buổi</button><button class="icon-btn" data-action="deleteSession" data-sid="${room.sid}" title="Xoá buổi này">🗑</button></span></div><div class="counts mt">${summary}</div></section>
 ${sendList}
